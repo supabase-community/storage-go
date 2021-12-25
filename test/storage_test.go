@@ -2,7 +2,7 @@ package test
 
 import (
 	"fmt"
-	storage_go "storage-go"
+	storage_go "github.com/supabase/storage-go"
 	"testing"
 )
 
