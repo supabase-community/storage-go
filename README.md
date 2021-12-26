@@ -14,7 +14,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/supabase/storage-go"
+	"github.com/supabase-community/storage-go"
 )
 
 func main() {
