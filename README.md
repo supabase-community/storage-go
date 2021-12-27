@@ -4,7 +4,7 @@ Golang client for [Supabase Storage API](https://github.com/supabase/storage-api
 ## Quick start
 Install
 ```shell
-go get github.com/supabase/storage-go
+go get github.com/supabase-community/storage-go
 ```
 
 Usage
