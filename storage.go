@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"regexp"
 	"strconv"
 )
 
@@ -24,7 +25,7 @@ func (c *Client) UploadOrUpdateFile(bucketId string, relativePath string, data [
 	c.clientTransport.header.Set("x-upsert", strconv.FormatBool(defaultFileUpsert))
 
 	body := bytes.NewBuffer(data)
-	_path := bucketId + "/" + relativePath
+	_path := removeEmptyFolderName(bucketId + "/" + relativePath)
 
 	var (
 		res *http.Response
@@ -182,6 +183,12 @@ func (c *Client) ListFiles(bucketId string, queryPath string, options FileSearch
 	err = json.Unmarshal(body, &response)
 
 	return response
+}
+
+// removeEmptyFolderName replaces occurances of double slashes (//)  with a single slash /
+// returns a path string with all double slashes replaced with single slash /
+func removeEmptyFolderName(filePath string) string {
+	return regexp.MustCompile(`\/\/`).ReplaceAllString(filePath, "/")
 }
 
 type SortBy struct {
