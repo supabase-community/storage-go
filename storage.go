@@ -1,8 +1,10 @@
 package storage_go
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"regexp"
@@ -19,12 +21,12 @@ const (
 	defaultSortOrder        = "asc"
 )
 
-func (c *Client) UploadOrUpdateFile(bucketId string, relativePath string, data []byte, update bool) FileUploadResponse {
+func (c *Client) UploadOrUpdateFile(bucketId string, relativePath string, data io.Reader, update bool) FileUploadResponse {
 	c.clientTransport.header.Set("cache-control", defaultFileCacheControl)
 	c.clientTransport.header.Set("content-type", defaultFileContentType)
 	c.clientTransport.header.Set("x-upsert", strconv.FormatBool(defaultFileUpsert))
 
-	body := bytes.NewBuffer(data)
+	body := bufio.NewReader(data)
 	_path := removeEmptyFolderName(bucketId + "/" + relativePath)
 
 	var (
@@ -53,12 +55,12 @@ func (c *Client) UploadOrUpdateFile(bucketId string, relativePath string, data [
 	return response
 }
 
-func (c *Client) UploadFile(bucketId string, relativePath string, data []byte) FileUploadResponse {
-	return c.UploadOrUpdateFile(bucketId, relativePath, data, false)
+func (c *Client) UpdateFile(bucketId string, relativePath string, data io.Reader) FileUploadResponse {
+	return c.UploadOrUpdateFile(bucketId, relativePath, data, true)
 }
 
-func (c *Client) UpdateFile(bucketId string, relativePath string, data []byte) FileUploadResponse {
-	return c.UploadOrUpdateFile(bucketId, relativePath, data, true)
+func (c *Client) UploadFile(bucketId string, relativePath string, data io.Reader) FileUploadResponse {
+	return c.UploadOrUpdateFile(bucketId, relativePath, data, false)
 }
 
 func (c *Client) MoveFile(bucketId string, sourceKey string, destinationKey string) FileUploadResponse {
