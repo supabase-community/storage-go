@@ -51,11 +51,20 @@ func (c *Client) GetBucket(id string) (Bucket, BucketResponseError) {
 }
 
 func (c *Client) CreateBucket(id string, options BucketOptions) (Bucket, BucketResponseError) {
-	jsonBody, _ := json.Marshal(map[string]interface{}{
+	bodyData := map[string]interface{}{
 		"id":     id,
 		"name":   id,
 		"public": options.Public,
-	})
+	}
+	// We only set the file size limit if it's not empty
+	if len(options.FileSizeLimit) > 0 {
+		bodyData["file_size_limit"] = options.FileSizeLimit
+	}
+	// We only set the allowed mime types if it's not empty
+	if len(options.AllowedMimeTypes) > 0 {
+		bodyData["allowed_mime_types"] = options.AllowedMimeTypes
+	}
+	jsonBody, _ := json.Marshal(bodyData)
 	res, err := c.session.Post(c.clientTransport.baseUrl.String()+"/bucket",
 		"application/json",
 		bytes.NewBuffer(jsonBody))
@@ -74,11 +83,20 @@ func (c *Client) CreateBucket(id string, options BucketOptions) (Bucket, BucketR
 }
 
 func (c *Client) UpdateBucket(id string, options BucketOptions) (MessageResponse, BucketResponseError) {
-	jsonBody, _ := json.Marshal(map[string]interface{}{
+	bodyData := map[string]interface{}{
 		"id":     id,
 		"name":   id,
 		"public": options.Public,
-	})
+	}
+	// We only set the file size limit if it's not empty
+	if len(options.FileSizeLimit) > 0 {
+		bodyData["file_size_limit"] = options.FileSizeLimit
+	}
+	// We only set the allowed mime types if it's not empty
+	if len(options.AllowedMimeTypes) > 0 {
+		bodyData["allowed_mime_types"] = options.AllowedMimeTypes
+	}
+	jsonBody, _ := json.Marshal(bodyData)
 	request, err := http.NewRequest(http.MethodPut, c.clientTransport.baseUrl.String()+"/bucket/"+id, bytes.NewBuffer(jsonBody))
 	res, err := c.session.Do(request)
 	if err != nil {
@@ -138,14 +156,18 @@ type BucketResponseError struct {
 }
 
 type Bucket struct {
-	Id        string `json:"id"`
-	Name      string `json:"name"`
-	Owner     string `json:"owner"`
-	Public    bool   `json:"public"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	Id               string   `json:"id"`
+	Name             string   `json:"name"`
+	Owner            string   `json:"owner"`
+	Public           bool     `json:"public"`
+	FileSizeLimit    string   `json:"file_size_limit"`
+	AllowedMimeTypes []string `json:"allowed_mine_types"`
+	CreatedAt        string   `json:"created_at"`
+	UpdatedAt        string   `json:"updated_at"`
 }
 
 type BucketOptions struct {
-	Public bool
+	Public           bool
+	FileSizeLimit    string
+	AllowedMimeTypes []string
 }
