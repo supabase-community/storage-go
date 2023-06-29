@@ -36,3 +36,7 @@ func main() {
 	fmt.Println(resp)
 }
 ```
+
+> Note to self:
+> Update after tagging:
+> GOPROXY=proxy.golang.org go list -m github.com/supabase-community/storage-go@v0.6.8
