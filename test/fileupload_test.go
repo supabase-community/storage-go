@@ -2,13 +2,16 @@ package test
 
 import (
 	"fmt"
-	"github.com/supabase-community/storage-go"
 	"os"
 	"testing"
+
+	storage_go "github.com/supabase-community/storage-go"
 )
 
-var rawUrl = "https://abc.supabase.co/storage/v1"
-var token = ""
+var (
+	rawUrl = "https://abc.supabase.co/storage/v1"
+	token  = ""
+)
 
 func TestUpload(t *testing.T) {
 	file, err := os.Open("dummy.txt")
@@ -19,8 +22,8 @@ func TestUpload(t *testing.T) {
 	resp := c.UploadFile("test1", "test.txt", file)
 	fmt.Println(resp)
 
-	//resp = c.UploadFile("test1", "hola.txt", []byte("hello world"))
-	//fmt.Println(resp)
+	// resp = c.UploadFile("test1", "hola.txt", []byte("hello world"))
+	// fmt.Println(resp)
 }
 
 func TestUpdate(t *testing.T) {
@@ -74,4 +77,22 @@ func TestListFile(t *testing.T) {
 	})
 
 	fmt.Println(resp)
+}
+
+func TestCreateUploadSignedUrl(t *testing.T) {
+	c := storage_go.NewClient(rawUrl, token, map[string]string{"apiKey": token})
+	resp, err := c.CreateSignedUploadUrl("your-bucket-id", "book.pdf")
+
+	fmt.Println(resp, err)
+}
+
+func TestUploadToSignedUrl(t *testing.T) {
+	c := storage_go.NewClient(rawUrl, token, map[string]string{"apiKey": token})
+	file, err := os.Open("dummy.txt")
+	if err != nil {
+		panic(err)
+	}
+	resp, err := c.UploadToSignedUrl("signed-url-response", file)
+
+	fmt.Println(resp, err)
 }

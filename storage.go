@@ -32,10 +32,10 @@ func (c *Client) UploadOrUpdateFile(bucketId string, relativePath string, data i
 	_path := removeEmptyFolderName(bucketId + "/" + relativePath)
 
 	var (
-		res *http.Response
-		err error
+		res     *http.Response
+		err     error
 		request *http.Request
-		method = http.MethodPost
+		method  = http.MethodPost
 	)
 
 	if update {
@@ -108,6 +108,59 @@ func (c *Client) CreateSignedUrl(bucketId string, filePath string, expiresIn int
 	response.SignedURL = c.clientTransport.baseUrl.String() + response.SignedURL
 
 	return response
+}
+
+func (c *Client) CreateSignedUploadUrl(bucketId string, filePath string) (SignedUploadUrlResponse, error) {
+	emptyBody, _ := json.Marshal(struct{}{})
+	request, err := http.NewRequest(
+		http.MethodPost,
+		c.clientTransport.baseUrl.String()+"/object/upload/sign/"+bucketId+"/"+filePath, bytes.NewBuffer(emptyBody))
+	if err != nil {
+		return SignedUploadUrlResponse{}, err
+	}
+	res, err := c.session.Do(request)
+	if err != nil {
+		return SignedUploadUrlResponse{}, err
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return SignedUploadUrlResponse{}, err
+	}
+	var response SignedUploadUrlResponse
+	err = json.Unmarshal(body, &response)
+
+	return response, err
+}
+
+func (c *Client) UploadToSignedUrl(filePath string, fileBody io.Reader) (*UploadToSignedUrlResponse, error) {
+	c.clientTransport.header.Set("cache-control", defaultFileCacheControl)
+	c.clientTransport.header.Set("content-type", defaultFileContentType)
+	c.clientTransport.header.Set("x-upsert", strconv.FormatBool(defaultFileUpsert))
+
+	bodyRequest := bufio.NewReader(fileBody)
+	path := removeEmptyFolderName(filePath)
+
+	request, err := http.NewRequest(http.MethodPut, c.clientTransport.baseUrl.String()+path, bodyRequest)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.session.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var response UploadToSignedUrlResponse
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, err
 }
 
 func (c *Client) GetPublicUrl(bucketId string, filePath string, urlOptions ...UrlOptions) SignedUrlResponse {
@@ -283,4 +336,12 @@ type TransformOptions struct {
 type UrlOptions struct {
 	Transform TransformOptions `json:"transform"`
 	Download  bool             `json:"download"`
+}
+
+type SignedUploadUrlResponse struct {
+	Url string `json:"url"`
+}
+
+type UploadToSignedUrlResponse struct {
+	Key string `json:"key"`
 }
