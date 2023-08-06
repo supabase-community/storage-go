@@ -23,9 +23,10 @@ const (
 
 func (c *Client) UploadOrUpdateFile(bucketId string, relativePath string, data io.Reader, update bool) FileUploadResponse {
 	c.clientTransport.header.Set("cache-control", defaultFileCacheControl)
-	c.clientTransport.header.Set("content-type", defaultFileContentType)
+	if c.clientTransport.header == nil {
+		c.clientTransport.header.Set("content-type", defaultFileContentType)
+	}
 	c.clientTransport.header.Set("x-upsert", strconv.FormatBool(defaultFileUpsert))
-
 	body := bufio.NewReader(data)
 	_path := removeEmptyFolderName(bucketId + "/" + relativePath)
 
@@ -39,10 +40,9 @@ func (c *Client) UploadOrUpdateFile(bucketId string, relativePath string, data i
 		request, err = http.NewRequest(http.MethodPut, c.clientTransport.baseUrl.String()+"/object/"+_path, body)
 		res, err = c.session.Do(request)
 	} else {
-		res, err = c.session.Post(
-			c.clientTransport.baseUrl.String()+"/object/"+_path,
-			defaultFileContentType,
-			body)
+		var request *http.Request
+		request, err = http.NewRequest(http.MethodPost, c.clientTransport.baseUrl.String()+"/object/"+_path, body)
+		res, err = c.session.Do(request)
 	}
 	if err != nil {
 		panic(err)
