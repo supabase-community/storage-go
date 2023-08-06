@@ -23,7 +23,7 @@ const (
 
 func (c *Client) UploadOrUpdateFile(bucketId string, relativePath string, data io.Reader, update bool) FileUploadResponse {
 	c.clientTransport.header.Set("cache-control", defaultFileCacheControl)
-	if c.clientTransport.header == nil {
+	if c.clientTransport.header.Get("content-type") == "" {
 		c.clientTransport.header.Set("content-type", defaultFileContentType)
 	}
 	c.clientTransport.header.Set("x-upsert", strconv.FormatBool(defaultFileUpsert))
@@ -33,17 +33,16 @@ func (c *Client) UploadOrUpdateFile(bucketId string, relativePath string, data i
 	var (
 		res *http.Response
 		err error
+		request *http.Request
+		method = http.MethodPost
 	)
 
 	if update {
-		var request *http.Request
-		request, err = http.NewRequest(http.MethodPut, c.clientTransport.baseUrl.String()+"/object/"+_path, body)
-		res, err = c.session.Do(request)
-	} else {
-		var request *http.Request
-		request, err = http.NewRequest(http.MethodPost, c.clientTransport.baseUrl.String()+"/object/"+_path, body)
-		res, err = c.session.Do(request)
+		method = http.MethodPut
 	}
+
+	request, err = http.NewRequest(method, c.clientTransport.baseUrl.String()+"/object/"+_path, body)
+	res, err = c.session.Do(request)
 	if err != nil {
 		panic(err)
 	}
