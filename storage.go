@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 )
@@ -109,10 +110,49 @@ func (c *Client) CreateSignedUrl(bucketId string, filePath string, expiresIn int
 	return response
 }
 
-func (c *Client) GetPublicUrl(bucketId string, filePath string) SignedUrlResponse {
+func (c *Client) GetPublicUrl(bucketId string, filePath string, urlOptions ...UrlOptions) SignedUrlResponse {
 	var response SignedUrlResponse
 
-	response.SignedURL = c.clientTransport.baseUrl.String() + "/object/public/" + bucketId + "/" + filePath
+	urlStr := c.clientTransport.baseUrl.String() + "/object/public/" + bucketId + "/" + filePath
+	signedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return response
+	}
+
+	signedURLQuery := signedURL.Query()
+	var options UrlOptions
+	if len(urlOptions) > 0 {
+		options = urlOptions[0]
+	}
+
+	if options.Transform.Height > 0 {
+		signedURLQuery.Add("height", strconv.Itoa(options.Transform.Height))
+	}
+	if options.Transform.Width > 0 {
+		signedURLQuery.Add("width", strconv.Itoa(options.Transform.Width))
+	}
+	// Default: origin
+	if options.Transform.Format != "" {
+		signedURLQuery.Add("format", options.Transform.Format)
+	} else {
+		signedURLQuery.Add("format", "origin")
+	}
+	// Default: 80
+	if options.Transform.Quality > 0 {
+		signedURLQuery.Add("quality", strconv.Itoa(options.Transform.Quality))
+	} else {
+		signedURLQuery.Add("quality", "80")
+	}
+	if options.Transform.Resize != "" && (options.Transform.Resize == "conver" || options.Transform.Resize == "contain" || options.Transform.Resize == "fill") {
+		signedURLQuery.Add("resize", options.Transform.Resize)
+	}
+	// Default on server is false
+	if options.Download == true {
+		signedURLQuery.Add("download", strconv.FormatBool(options.Download))
+	}
+
+	signedURL.RawQuery = signedURLQuery.Encode()
+	response.SignedURL = signedURL.String()
 
 	return response
 }
@@ -230,4 +270,17 @@ type ListFileRequestBody struct {
 	Offset        int    `json:"offset"`
 	SortByOptions SortBy `json:"sortBy"`
 	Prefix        string `json:"prefix"`
+}
+
+type TransformOptions struct {
+	Width   int    `json:"width"`
+	Height  int    `json:"height"`
+	Resize  string `json:"resize"`
+	Format  string `json:"format"`
+	Quality int    `json:"quality"`
+}
+
+type UrlOptions struct {
+	Transform TransformOptions `json:"transform"`
+	Download  bool             `json:"download"`
 }
