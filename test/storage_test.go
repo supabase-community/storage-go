@@ -2,8 +2,9 @@ package test
 
 import (
 	"fmt"
-	"github.com/supabase-community/storage-go"
 	"testing"
+
+	"github.com/supabase-community/storage-go"
 )
 
 func TestBucketListAll(t *testing.T) {
