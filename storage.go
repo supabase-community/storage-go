@@ -279,6 +279,22 @@ func (c *Client) ListFiles(bucketId string, queryPath string, options FileSearch
 	return response
 }
 
+func (c *Client) DownloadFile(bucketId string, filePath string) ([]byte, error) {
+	request, err := http.NewRequest(
+		http.MethodGet,
+		c.clientTransport.baseUrl.String()+"/object/"+bucketId+"/"+filePath,
+		nil)
+	if err != nil {
+		return nil, err
+	}
+	res, err := c.session.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	return body, err
+}
+
 // removeEmptyFolderName replaces occurances of double slashes (//)  with a single slash /
 // returns a path string with all double slashes replaced with single slash /
 func removeEmptyFolderName(filePath string) string {
