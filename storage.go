@@ -165,47 +165,16 @@ func (c *Client) UploadToSignedUrl(filePath string, fileBody io.Reader) (*Upload
 
 func (c *Client) GetPublicUrl(bucketId string, filePath string, urlOptions ...UrlOptions) SignedUrlResponse {
 	var response SignedUrlResponse
-
-	urlStr := c.clientTransport.baseUrl.String() + "/object/public/" + bucketId + "/" + filePath
-	signedURL, err := url.Parse(urlStr)
-	if err != nil {
-		return response
-	}
-
-	signedURLQuery := signedURL.Query()
+	renderPath := "object"
 	var options UrlOptions
 	if len(urlOptions) > 0 {
 		options = urlOptions[0]
+		if options.Transform != nil {
+			renderPath = "render/image"
+		}
 	}
-
-	if options.Transform.Height > 0 {
-		signedURLQuery.Add("height", strconv.Itoa(options.Transform.Height))
-	}
-	if options.Transform.Width > 0 {
-		signedURLQuery.Add("width", strconv.Itoa(options.Transform.Width))
-	}
-	// Default: origin
-	if options.Transform.Format != "" {
-		signedURLQuery.Add("format", options.Transform.Format)
-	} else {
-		signedURLQuery.Add("format", "origin")
-	}
-	// Default: 80
-	if options.Transform.Quality > 0 {
-		signedURLQuery.Add("quality", strconv.Itoa(options.Transform.Quality))
-	} else {
-		signedURLQuery.Add("quality", "80")
-	}
-	if options.Transform.Resize != "" && (options.Transform.Resize == "conver" || options.Transform.Resize == "contain" || options.Transform.Resize == "fill") {
-		signedURLQuery.Add("resize", options.Transform.Resize)
-	}
-	// Default on server is false
-	if options.Download == true {
-		signedURLQuery.Add("download", strconv.FormatBool(options.Download))
-	}
-
-	signedURL.RawQuery = signedURLQuery.Encode()
-	response.SignedURL = signedURL.String()
+	urlStr := c.clientTransport.baseUrl.String() + "/" + renderPath + "/public/" + bucketId + "/" + filePath
+	response.SignedURL = buildUrlWithOption(urlStr, options)
 
 	return response
 }
@@ -279,10 +248,19 @@ func (c *Client) ListFiles(bucketId string, queryPath string, options FileSearch
 	return response
 }
 
-func (c *Client) DownloadFile(bucketId string, filePath string) ([]byte, error) {
+func (c *Client) DownloadFile(bucketId string, filePath string, urlOptions ...UrlOptions) ([]byte, error) {
+	var options UrlOptions
+	renderPath := "object"
+	if len(urlOptions) > 0 {
+		options = urlOptions[0]
+		if options.Transform != nil {
+			renderPath = "render/image/authenticated"
+		}
+	}
+	urlStr := c.clientTransport.baseUrl.String() + "/" + renderPath + "/" + bucketId + "/" + filePath
 	request, err := http.NewRequest(
 		http.MethodGet,
-		c.clientTransport.baseUrl.String()+"/object/"+bucketId+"/"+filePath,
+		buildUrlWithOption(urlStr, options),
 		nil)
 	if err != nil {
 		return nil, err
@@ -291,8 +269,45 @@ func (c *Client) DownloadFile(bucketId string, filePath string) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
+	defer res.Body.Close()
 	body, err := ioutil.ReadAll(res.Body)
 	return body, err
+}
+
+// buildUrlWithOption will base on current url and option to build a new url
+func buildUrlWithOption(urlStr string, options UrlOptions) string {
+	signedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return ""
+	}
+	signedURLQuery := signedURL.Query()
+
+	if options.Transform != nil {
+		if options.Transform.Height > 0 {
+			signedURLQuery.Add("height", strconv.Itoa(options.Transform.Height))
+		}
+		if options.Transform.Width > 0 {
+			signedURLQuery.Add("width", strconv.Itoa(options.Transform.Width))
+		}
+		// Default: origin
+		if options.Transform.Format != "" {
+			signedURLQuery.Add("format", options.Transform.Format)
+		}
+		// Default: 80
+		if options.Transform.Quality > 0 {
+			signedURLQuery.Add("quality", strconv.Itoa(options.Transform.Quality))
+		}
+		if options.Transform.Resize != "" && (options.Transform.Resize == "conver" || options.Transform.Resize == "contain" || options.Transform.Resize == "fill") {
+			signedURLQuery.Add("resize", options.Transform.Resize)
+		}
+	}
+	// Default on server is false
+	if options.Download == true {
+		signedURLQuery.Add("download", strconv.FormatBool(options.Download))
+	}
+
+	signedURL.RawQuery = signedURLQuery.Encode()
+	return signedURL.String()
 }
 
 // removeEmptyFolderName replaces occurances of double slashes (//)  with a single slash /
@@ -350,8 +365,8 @@ type TransformOptions struct {
 }
 
 type UrlOptions struct {
-	Transform TransformOptions `json:"transform"`
-	Download  bool             `json:"download"`
+	Transform *TransformOptions `json:"transform"`
+	Download  bool              `json:"download"`
 }
 
 type SignedUploadUrlResponse struct {

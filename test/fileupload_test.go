@@ -100,16 +100,13 @@ func TestUploadToSignedUrl(t *testing.T) {
 
 func TestDownloadFile(t *testing.T) {
 	c := storage_go.NewClient(rawUrl, token, map[string]string{})
-	resp, err := c.DownloadFile("test1", "book.pdf")
+	resp, err := c.DownloadFile("your-bucket-id", "book.pdf")
 	if err != nil {
-		fmt.Println(err)
+		t.Fatalf("DownloadFile failed: %v", err)
 	}
 
-	file, err := os.Create("book.pdf")
+	err = ioutil.WriteFile("book.pdf", resp, 0644)
 	if err != nil {
-		fmt.Println(err)
+		t.Fatalf("WriteFile failed: %v", err)
 	}
-	defer file.Close()
-
-	ioutil.WriteFile("book.pdf", resp, 0644)
 }
