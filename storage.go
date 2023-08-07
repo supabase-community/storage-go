@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 )
@@ -31,10 +32,10 @@ func (c *Client) UploadOrUpdateFile(bucketId string, relativePath string, data i
 	_path := removeEmptyFolderName(bucketId + "/" + relativePath)
 
 	var (
-		res *http.Response
-		err error
+		res     *http.Response
+		err     error
 		request *http.Request
-		method = http.MethodPost
+		method  = http.MethodPost
 	)
 
 	if update {
@@ -109,10 +110,102 @@ func (c *Client) CreateSignedUrl(bucketId string, filePath string, expiresIn int
 	return response
 }
 
-func (c *Client) GetPublicUrl(bucketId string, filePath string) SignedUrlResponse {
+func (c *Client) CreateSignedUploadUrl(bucketId string, filePath string) (SignedUploadUrlResponse, error) {
+	emptyBody, _ := json.Marshal(struct{}{})
+	request, err := http.NewRequest(
+		http.MethodPost,
+		c.clientTransport.baseUrl.String()+"/object/upload/sign/"+bucketId+"/"+filePath, bytes.NewBuffer(emptyBody))
+	if err != nil {
+		return SignedUploadUrlResponse{}, err
+	}
+	res, err := c.session.Do(request)
+	if err != nil {
+		return SignedUploadUrlResponse{}, err
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return SignedUploadUrlResponse{}, err
+	}
+	var response SignedUploadUrlResponse
+	err = json.Unmarshal(body, &response)
+
+	return response, err
+}
+
+func (c *Client) UploadToSignedUrl(filePath string, fileBody io.Reader) (*UploadToSignedUrlResponse, error) {
+	c.clientTransport.header.Set("cache-control", defaultFileCacheControl)
+	c.clientTransport.header.Set("content-type", defaultFileContentType)
+	c.clientTransport.header.Set("x-upsert", strconv.FormatBool(defaultFileUpsert))
+
+	bodyRequest := bufio.NewReader(fileBody)
+	path := removeEmptyFolderName(filePath)
+
+	request, err := http.NewRequest(http.MethodPut, c.clientTransport.baseUrl.String()+path, bodyRequest)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.session.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var response UploadToSignedUrlResponse
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, err
+}
+
+func (c *Client) GetPublicUrl(bucketId string, filePath string, urlOptions ...UrlOptions) SignedUrlResponse {
 	var response SignedUrlResponse
 
-	response.SignedURL = c.clientTransport.baseUrl.String() + "/object/public/" + bucketId + "/" + filePath
+	urlStr := c.clientTransport.baseUrl.String() + "/object/public/" + bucketId + "/" + filePath
+	signedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return response
+	}
+
+	signedURLQuery := signedURL.Query()
+	var options UrlOptions
+	if len(urlOptions) > 0 {
+		options = urlOptions[0]
+	}
+
+	if options.Transform.Height > 0 {
+		signedURLQuery.Add("height", strconv.Itoa(options.Transform.Height))
+	}
+	if options.Transform.Width > 0 {
+		signedURLQuery.Add("width", strconv.Itoa(options.Transform.Width))
+	}
+	// Default: origin
+	if options.Transform.Format != "" {
+		signedURLQuery.Add("format", options.Transform.Format)
+	} else {
+		signedURLQuery.Add("format", "origin")
+	}
+	// Default: 80
+	if options.Transform.Quality > 0 {
+		signedURLQuery.Add("quality", strconv.Itoa(options.Transform.Quality))
+	} else {
+		signedURLQuery.Add("quality", "80")
+	}
+	if options.Transform.Resize != "" && (options.Transform.Resize == "conver" || options.Transform.Resize == "contain" || options.Transform.Resize == "fill") {
+		signedURLQuery.Add("resize", options.Transform.Resize)
+	}
+	// Default on server is false
+	if options.Download == true {
+		signedURLQuery.Add("download", strconv.FormatBool(options.Download))
+	}
+
+	signedURL.RawQuery = signedURLQuery.Encode()
+	response.SignedURL = signedURL.String()
 
 	return response
 }
@@ -230,4 +323,25 @@ type ListFileRequestBody struct {
 	Offset        int    `json:"offset"`
 	SortByOptions SortBy `json:"sortBy"`
 	Prefix        string `json:"prefix"`
+}
+
+type TransformOptions struct {
+	Width   int    `json:"width"`
+	Height  int    `json:"height"`
+	Resize  string `json:"resize"`
+	Format  string `json:"format"`
+	Quality int    `json:"quality"`
+}
+
+type UrlOptions struct {
+	Transform TransformOptions `json:"transform"`
+	Download  bool             `json:"download"`
+}
+
+type SignedUploadUrlResponse struct {
+	Url string `json:"url"`
+}
+
+type UploadToSignedUrlResponse struct {
+	Key string `json:"key"`
 }
