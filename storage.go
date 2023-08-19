@@ -325,6 +325,8 @@ type FileUploadResponse struct {
 	Key     string `json:"Key"`
 	Message string `json:"message"`
 	Data    []byte
+	Code    string    `json:"statusCode"`
+	Error   string    `json:"error"`
 }
 
 type SignedUrlResponse struct {
