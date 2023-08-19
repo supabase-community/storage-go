@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -95,4 +96,17 @@ func TestUploadToSignedUrl(t *testing.T) {
 	resp, err := c.UploadToSignedUrl("signed-url-response", file)
 
 	fmt.Println(resp, err)
+}
+
+func TestDownloadFile(t *testing.T) {
+	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	resp, err := c.DownloadFile("your-bucket-id", "book.pdf")
+	if err != nil {
+		t.Fatalf("DownloadFile failed: %v", err)
+	}
+
+	err = ioutil.WriteFile("book.pdf", resp, 0644)
+	if err != nil {
+		t.Fatalf("WriteFile failed: %v", err)
+	}
 }
