@@ -2,7 +2,6 @@ package test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -105,7 +104,7 @@ func TestDownloadFile(t *testing.T) {
 		t.Fatalf("DownloadFile failed: %v", err)
 	}
 
-	err = ioutil.WriteFile("book.pdf", resp, 0644)
+	err = os.WriteFile("book.pdf", resp, 0644)
 	if err != nil {
 		t.Fatalf("WriteFile failed: %v", err)
 	}

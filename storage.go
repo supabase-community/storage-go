@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -48,7 +47,7 @@ func (c *Client) UploadOrUpdateFile(bucketId string, relativePath string, data i
 		panic(err)
 	}
 
-	body_, err := ioutil.ReadAll(res.Body)
+	body_, err := io.ReadAll(res.Body)
 	var response FileUploadResponse
 	err = json.Unmarshal(body_, &response)
 
@@ -80,7 +79,7 @@ func (c *Client) MoveFile(bucketId string, sourceKey string, destinationKey stri
 		panic(err)
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	var response FileUploadResponse
 	err = json.Unmarshal(body, &response)
 
@@ -102,7 +101,7 @@ func (c *Client) CreateSignedUrl(bucketId string, filePath string, expiresIn int
 		panic(err)
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	var response SignedUrlResponse
 	err = json.Unmarshal(body, &response)
 	response.SignedURL = c.clientTransport.baseUrl.String() + response.SignedURL
@@ -123,7 +122,7 @@ func (c *Client) CreateSignedUploadUrl(bucketId string, filePath string) (Signed
 		return SignedUploadUrlResponse{}, err
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return SignedUploadUrlResponse{}, err
 	}
@@ -150,7 +149,7 @@ func (c *Client) UploadToSignedUrl(filePath string, fileBody io.Reader) (*Upload
 		return nil, err
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +193,7 @@ func (c *Client) RemoveFile(bucketId string, paths []string) FileUploadResponse 
 		panic(err)
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	var response FileUploadResponse
 	err = json.Unmarshal(body, &response)
 	response.Data = body
@@ -240,7 +239,7 @@ func (c *Client) ListFiles(bucketId string, queryPath string, options FileSearch
 		panic(err)
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	var response []FileObject
 
 	err = json.Unmarshal(body, &response)
@@ -270,7 +269,7 @@ func (c *Client) DownloadFile(bucketId string, filePath string, urlOptions ...Ur
 		return nil, err
 	}
 	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	return body, err
 }
 
@@ -325,8 +324,8 @@ type FileUploadResponse struct {
 	Key     string `json:"Key"`
 	Message string `json:"message"`
 	Data    []byte
-	Code    string    `json:"statusCode"`
-	Error   string    `json:"error"`
+	Code    string `json:"statusCode"`
+	Error   string `json:"error"`
 }
 
 type SignedUrlResponse struct {

@@ -5,7 +5,7 @@ import (
 	"net/url"
 )
 
-var version = "v0.5.6"
+var version = "v0.6.9"
 
 type Client struct {
 	clientError     error
