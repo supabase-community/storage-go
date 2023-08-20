@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 )
 
@@ -21,7 +20,7 @@ func (c *Client) ListBuckets() ([]Bucket, BucketResponseError) {
 		}
 	}(res.Body)
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		panic(err)
 	}
@@ -41,7 +40,7 @@ func (c *Client) GetBucket(id string) (Bucket, BucketResponseError) {
 		panic(err)
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	var data Bucket
 	var error_ BucketResponseError
 	err = json.Unmarshal(body, &data)
@@ -72,7 +71,7 @@ func (c *Client) CreateBucket(id string, options BucketOptions) (Bucket, BucketR
 		panic(err)
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	var data Bucket
 	var error_ BucketResponseError
 	err = json.Unmarshal(body, &data)
@@ -103,7 +102,7 @@ func (c *Client) UpdateBucket(id string, options BucketOptions) (MessageResponse
 		panic(err)
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	var data MessageResponse
 	var error_ BucketResponseError
 	err = json.Unmarshal(body, &data)
@@ -119,7 +118,7 @@ func (c *Client) EmptyBucket(id string) (MessageResponse, BucketResponseError) {
 		panic(err)
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	var data MessageResponse
 	var error_ BucketResponseError
 	err = json.Unmarshal(body, &data)
@@ -136,7 +135,7 @@ func (c *Client) DeleteBucket(id string) (MessageResponse, BucketResponseError) 
 		panic(err)
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	var data MessageResponse
 	var error_ BucketResponseError
 	err = json.Unmarshal(body, &data)
