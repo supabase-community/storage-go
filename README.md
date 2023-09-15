@@ -27,11 +27,11 @@ func main() {
 	client := storage_go.NewClient("https://<project-reference-id>.supabase.co/storage/v1", "<project-secret-api-key>", nil)
 
 	// Create a new bucket
-	bucket, berr := client.CreateBucket("bucket-id", storage_go.BucketOptions{Public: true})
+	bucket, err := client.CreateBucket("bucket-id", storage_go.BucketOptions{Public: true})
 
-	if berr.Error != "" {
-    log.Fatal("error creating bucket, ", berr)
-  }
+	if err.Error != "" {
+    	log.Fatal("error creating bucket, ", err)
+  	}
 
 	// Upload a file
 	file, err := os.Open("dummy.txt")
@@ -43,15 +43,15 @@ func main() {
 	fmt.Println(resp)
 
 	// Update Bucket
-	response, berr := client.UpdateBucket(bucket.Id, storage_go.BucketOptions{Public: true})
+	response, err := client.UpdateBucket(bucket.Id, storage_go.BucketOptions{Public: true})
 	fmt.Println(response)
 
 	// Empty Bucket
-	response, berr = client.EmptyBucket(bucket.Id)
+	response, err = client.EmptyBucket(bucket.Id)
 	fmt.Println(response)
 
 	// Delete Bucket
-	response, berr = client.DeleteBucket(bucket.Id)
+	response, err = client.DeleteBucket(bucket.Id)
 	fmt.Println(response)
 
 	// Get a bucket by its id
