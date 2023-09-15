@@ -3,53 +3,65 @@ package storage_go
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 )
 
-func (c *Client) ListBuckets() ([]Bucket, BucketResponseError) {
+func (c *Client) ListBuckets() ([]Bucket, error) {
 	res, err := c.session.Get(c.clientTransport.baseUrl.String() + "/bucket")
 	if err != nil {
-		panic(err)
+		return []Bucket{}, err
 	}
 
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			panic(err)
-		}
-	}(res.Body)
+	defer res.Body.Close()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		panic(err)
+		return []Bucket{}, err
 	}
 
 	var data []Bucket
 	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return []Bucket{}, err
+	}
 
 	var respError BucketResponseError
-	err = json.Unmarshal(body, &respError)
+	_ = json.Unmarshal(body, &respError)
+	if respError.Errors != "" {
+		return []Bucket{}, respError
+	}
 
-	return data, respError
+	return data, nil
 }
 
-func (c *Client) GetBucket(id string) (Bucket, BucketResponseError) {
+func (c *Client) GetBucket(id string) (Bucket, error) {
 	res, err := c.session.Get(c.clientTransport.baseUrl.String() + "/bucket/" + id)
 	if err != nil {
-		panic(err)
+		return Bucket{}, err
 	}
 
 	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return Bucket{}, err
+	}
 	var data Bucket
-	var error_ BucketResponseError
 	err = json.Unmarshal(body, &data)
-	err = json.Unmarshal(body, &error_)
+	if err != nil {
+		return Bucket{}, err
+	}
 
-	return data, error_
+	var respError BucketResponseError
+	_ = json.Unmarshal(body, &respError)
+	if respError.Errors != "" {
+		return Bucket{}, respError
+	}
+
+	return data, nil
 }
 
-func (c *Client) CreateBucket(id string, options BucketOptions) (Bucket, BucketResponseError) {
+func (c *Client) CreateBucket(id string, options BucketOptions) (Bucket, error) {
 	bodyData := map[string]interface{}{
 		"id":     id,
 		"name":   id,
@@ -63,25 +75,40 @@ func (c *Client) CreateBucket(id string, options BucketOptions) (Bucket, BucketR
 	if len(options.AllowedMimeTypes) > 0 {
 		bodyData["allowed_mime_types"] = options.AllowedMimeTypes
 	}
-	jsonBody, _ := json.Marshal(bodyData)
+	jsonBody, err := json.Marshal(bodyData)
+	if err != nil {
+		return Bucket{}, err
+	}
+
 	res, err := c.session.Post(c.clientTransport.baseUrl.String()+"/bucket",
 		"application/json",
 		bytes.NewBuffer(jsonBody))
 	if err != nil {
-		panic(err)
+		return Bucket{}, err
 	}
 
 	body, err := io.ReadAll(res.Body)
-	var data Bucket
-	var error_ BucketResponseError
-	err = json.Unmarshal(body, &data)
-	data.Public = options.Public
-	err = json.Unmarshal(body, &error_)
+	if err != nil {
+		return Bucket{}, err
+	}
 
-	return data, error_
+	var data Bucket
+	var errResp BucketResponseError
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return Bucket{}, err
+	}
+
+	data.Public = options.Public
+	_ = json.Unmarshal(body, &errResp)
+	if errResp.Errors != "" {
+		return Bucket{}, errResp
+	}
+
+	return data, nil
 }
 
-func (c *Client) UpdateBucket(id string, options BucketOptions) (MessageResponse, BucketResponseError) {
+func (c *Client) UpdateBucket(id string, options BucketOptions) (MessageResponse, error) {
 	bodyData := map[string]interface{}{
 		"id":     id,
 		"name":   id,
@@ -95,53 +122,104 @@ func (c *Client) UpdateBucket(id string, options BucketOptions) (MessageResponse
 	if len(options.AllowedMimeTypes) > 0 {
 		bodyData["allowed_mime_types"] = options.AllowedMimeTypes
 	}
-	jsonBody, _ := json.Marshal(bodyData)
+	jsonBody, err := json.Marshal(bodyData)
+	if err != nil {
+		return MessageResponse{}, err
+	}
 	request, err := http.NewRequest(http.MethodPut, c.clientTransport.baseUrl.String()+"/bucket/"+id, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return MessageResponse{}, err
+	}
+
 	res, err := c.session.Do(request)
 	if err != nil {
-		panic(err)
+		return MessageResponse{}, err
 	}
 
 	body, err := io.ReadAll(res.Body)
-	var data MessageResponse
-	var error_ BucketResponseError
-	err = json.Unmarshal(body, &data)
-	err = json.Unmarshal(body, &error_)
+	if err != nil {
+		return MessageResponse{}, err
+	}
 
-	return data, error_
+	var data MessageResponse
+	var errResp BucketResponseError
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return MessageResponse{}, err
+	}
+
+	_ = json.Unmarshal(body, &errResp)
+	if errResp.Errors != "" {
+		return MessageResponse{}, err
+	}
+
+	return data, nil
 }
 
-func (c *Client) EmptyBucket(id string) (MessageResponse, BucketResponseError) {
-	jsonBody, _ := json.Marshal(map[string]interface{}{})
+func (c *Client) EmptyBucket(id string) (MessageResponse, error) {
+	jsonBody, err := json.Marshal(map[string]interface{}{})
+	if err != nil {
+		return MessageResponse{}, err
+	}
+
 	res, err := c.session.Post(c.clientTransport.baseUrl.String()+"/bucket/"+id+"/empty", "application/json", bytes.NewBuffer(jsonBody))
 	if err != nil {
-		panic(err)
+		return MessageResponse{}, err
 	}
 
 	body, err := io.ReadAll(res.Body)
-	var data MessageResponse
-	var error_ BucketResponseError
-	err = json.Unmarshal(body, &data)
-	err = json.Unmarshal(body, &error_)
+	if err != nil {
+		return MessageResponse{}, err
+	}
 
-	return data, error_
+	var data MessageResponse
+	var errResp BucketResponseError
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return MessageResponse{}, err
+	}
+	_ = json.Unmarshal(body, &errResp)
+	if errResp.Errors != "" {
+		return data, errResp
+	}
+
+	return data, nil
 }
 
-func (c *Client) DeleteBucket(id string) (MessageResponse, BucketResponseError) {
-	jsonBody, _ := json.Marshal(map[string]interface{}{})
+func (c *Client) DeleteBucket(id string) (MessageResponse, error) {
+	jsonBody, err := json.Marshal(map[string]interface{}{})
+	if err != nil {
+		return MessageResponse{}, err
+	}
+
 	request, err := http.NewRequest(http.MethodDelete, c.clientTransport.baseUrl.String()+"/bucket/"+id, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return MessageResponse{}, err
+	}
+
 	res, err := c.session.Do(request)
 	if err != nil {
-		panic(err)
+		return MessageResponse{}, err
 	}
 
 	body, err := io.ReadAll(res.Body)
-	var data MessageResponse
-	var error_ BucketResponseError
-	err = json.Unmarshal(body, &data)
-	err = json.Unmarshal(body, &error_)
+	if err != nil {
+		return MessageResponse{}, err
+	}
 
-	return data, error_
+	var data MessageResponse
+	var errResp BucketResponseError
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return MessageResponse{}, err
+	}
+
+	_ = json.Unmarshal(body, &errResp)
+	if errResp.Errors != "" {
+		return data, errResp
+	}
+
+	return data, nil
 }
 
 type MessageResponse struct {
@@ -149,9 +227,13 @@ type MessageResponse struct {
 }
 
 type BucketResponseError struct {
-	Error      string `json:"error"`
+	Errors     string `json:"error"`
 	Message    string `json:"message"`
 	StatusCode uint16 `json:"statusCode"`
+}
+
+func (b BucketResponseError) Error() string {
+	return fmt.Sprintf("status %d: err %s: message %s", b.StatusCode, b.Errors, b.Message)
 }
 
 type Bucket struct {
