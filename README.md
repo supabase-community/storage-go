@@ -1,8 +1,11 @@
 # Storage GO
-Golang client for [Supabase Storage API](https://github.com/supabase/storage-api)
+
+This library is a Golang client for the [Supabase Storage API](https://supabase.com/docs/guides/storage). It's a collection of helper functions that help you manage your buckets through the API.
 
 ## Quick start
+
 Install
+
 ```shell
 go get github.com/supabase-community/storage-go
 ```
@@ -14,19 +17,23 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 
-	"github.com/supabase-community/storage-go"
+	storage_go "github.com/supabase-community/storage-go"
 )
 
 func main() {
-	client := storage_go.NewClient("https://abc.supabase.co/storage/v1", "<service-token>", nil)
+	client := storage_go.NewClient("https://<project-reference-id>.supabase.co/storage/v1", "<project-secret-api-key>", nil)
 
-	// Get buckets
-	fmt.Println(client.ListBuckets())
+	// Create a new bucket
+	bucket, err := client.CreateBucket("bucket-id", storage_go.BucketOptions{Public: true})
+
+	if err.Error != "" {
+    	log.Fatal("error creating bucket, ", err)
+  	}
 
 	// Upload a file
-
 	file, err := os.Open("dummy.txt")
 	if err != nil {
 		panic(err)
@@ -34,9 +41,33 @@ func main() {
 
 	resp := client.UploadFile("bucket-name", "file.txt", file)
 	fmt.Println(resp)
+
+	// Update Bucket
+	response, err := client.UpdateBucket(bucket.Id, storage_go.BucketOptions{Public: true})
+	fmt.Println(response)
+
+	// Empty Bucket
+	response, err = client.EmptyBucket(bucket.Id)
+	fmt.Println(response)
+
+	// Delete Bucket
+	response, err = client.DeleteBucket(bucket.Id)
+	fmt.Println(response)
+
+	// Get a bucket by its id
+	bucket = GetBucket("bucket-id")
+	fmt.Println(bucket)
+
+	// Get all buckets
+	fmt.Println(client.ListBuckets())
+
 }
 ```
 
 > Note to self:
 > Update after tagging:
 > GOPROXY=proxy.golang.org go list -m github.com/supabase-community/storage-go@v0.6.8
+
+## License
+
+<!-- I don't know which to use, but explicitly stating the license would be a big help -->
