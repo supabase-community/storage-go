@@ -143,30 +143,3 @@ func (c *Client) DeleteBucket(id string) (MessageResponse, BucketResponseError) 
 
 	return data, error_
 }
-
-type MessageResponse struct {
-	Message string `json:"message"`
-}
-
-type BucketResponseError struct {
-	Error      string `json:"error"`
-	Message    string `json:"message"`
-	StatusCode uint16 `json:"statusCode"`
-}
-
-type Bucket struct {
-	Id               string   `json:"id"`
-	Name             string   `json:"name"`
-	Owner            string   `json:"owner"`
-	Public           bool     `json:"public"`
-	FileSizeLimit    string   `json:"file_size_limit"`
-	AllowedMimeTypes []string `json:"allowed_mine_types"`
-	CreatedAt        string   `json:"created_at"`
-	UpdatedAt        string   `json:"updated_at"`
-}
-
-type BucketOptions struct {
-	Public           bool
-	FileSizeLimit    string
-	AllowedMimeTypes []string
-}
