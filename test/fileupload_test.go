@@ -19,11 +19,11 @@ func TestUpload(t *testing.T) {
 		panic(err)
 	}
 	c := storage_go.NewClient(rawUrl, token, map[string]string{})
-	resp := c.UploadFile("test1", "test.txt", file)
-	fmt.Println(resp)
+	resp, err := c.UploadFile("test", "test.txt", file)
+	fmt.Println(resp, err)
 
-	// resp = c.UploadFile("test1", "hola.txt", []byte("hello world"))
-	// fmt.Println(resp)
+	// resp, err = c.UploadFile("test", "hola.txt", []byte("hello world"))
+	// fmt.Println(resp, err)
 }
 
 func TestUpdate(t *testing.T) {
@@ -32,23 +32,23 @@ func TestUpdate(t *testing.T) {
 		panic(err)
 	}
 	c := storage_go.NewClient(rawUrl, token, map[string]string{})
-	resp := c.UpdateFile("test1", "test.txt", file)
+	resp, err := c.UpdateFile("test", "test.txt", file)
 
-	fmt.Println(resp)
+	fmt.Println(resp, err)
 }
 
 func TestMoveFile(t *testing.T) {
 	c := storage_go.NewClient(rawUrl, token, map[string]string{})
-	resp := c.MoveFile("test1", "test.txt", "random/test.txt")
+	resp, err := c.MoveFile("test", "test.txt", "random/test.txt")
 
-	fmt.Println(resp)
+	fmt.Println(resp, err)
 }
 
 func TestSignedUrl(t *testing.T) {
 	c := storage_go.NewClient(rawUrl, token, map[string]string{})
-	resp := c.CreateSignedUrl("test1", "file_example_MP4_480_1_5MG.mp4", 120)
+	resp, err := c.CreateSignedUrl("test", "file_example_MP4_480_1_5MG.mp4", 120)
 
-	fmt.Println(resp)
+	fmt.Println(resp, err)
 }
 
 func TestPublicUrl(t *testing.T) {
@@ -60,14 +60,14 @@ func TestPublicUrl(t *testing.T) {
 
 func TestDeleteFile(t *testing.T) {
 	c := storage_go.NewClient(rawUrl, token, map[string]string{})
-	resp := c.RemoveFile("shield", []string{"book.pdf"})
+	resp, err := c.RemoveFile("shield", []string{"book.pdf"})
 
-	fmt.Println(resp)
+	fmt.Println(resp, err)
 }
 
 func TestListFile(t *testing.T) {
 	c := storage_go.NewClient(rawUrl, token, map[string]string{})
-	resp := c.ListFiles("test1", "", storage_go.FileSearchOptions{
+	resp, err := c.ListFiles("shield", "", storage_go.FileSearchOptions{
 		Limit:  10,
 		Offset: 0,
 		SortByOptions: storage_go.SortBy{
@@ -76,7 +76,7 @@ func TestListFile(t *testing.T) {
 		},
 	})
 
-	fmt.Println(resp)
+	fmt.Println(resp, err)
 }
 
 func TestCreateUploadSignedUrl(t *testing.T) {
@@ -92,14 +92,14 @@ func TestUploadToSignedUrl(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	resp, err := c.UploadToSignedUrl("signed-url-response", file)
-
-	fmt.Println(resp, err)
+	// resp, err := c.CreateSignedUploadUrl("test", "vu.txt")
+	res, err := c.UploadToSignedUrl("your-response-url", file)
+	fmt.Println(res, err)
 }
 
 func TestDownloadFile(t *testing.T) {
 	c := storage_go.NewClient(rawUrl, token, map[string]string{})
-	resp, err := c.DownloadFile("your-bucket-id", "book.pdf")
+	resp, err := c.DownloadFile("test", "book.pdf")
 	if err != nil {
 		t.Fatalf("DownloadFile failed: %v", err)
 	}

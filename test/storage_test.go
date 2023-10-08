@@ -8,31 +8,42 @@ import (
 )
 
 func TestBucketListAll(t *testing.T) {
-	c := storage_go.NewClient("https://abc.supabase.co/storage/v1", "", map[string]string{})
-	c.ListBuckets()
+	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	resp, err := c.ListBuckets()
+	fmt.Println(resp, err)
 }
 
 func TestBucketFetchById(t *testing.T) {
-	c := storage_go.NewClient("https://abc.supabase.co/storage/v1", "", map[string]string{})
-	fmt.Println(c.GetBucket("shield"))
+	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	fmt.Println(c.GetBucket("test"))
 }
 
 func TestBucketCreate(t *testing.T) {
-	c := storage_go.NewClient("https://abc.supabase.co/storage/v1", "", map[string]string{})
-	fmt.Println(c.CreateBucket("test1", storage_go.BucketOptions{
+	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	fmt.Println(c.CreateBucket("test", storage_go.BucketOptions{
 		Public: true,
 	}))
 }
 
 func TestBucketUpdate(t *testing.T) {
-	c := storage_go.NewClient("https://abc.supabase.co/storage/v1", "", map[string]string{})
-	c.UpdateBucket("test1", storage_go.BucketOptions{
+	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	_, _ = c.UpdateBucket("test", storage_go.BucketOptions{
 		Public: false,
 	})
 
-	bucket, _ := c.GetBucket("test1")
+	bucket, _ := c.GetBucket("test")
 
 	if bucket.Public {
 		t.Errorf("Should have been private bucket after updating")
 	}
+}
+
+func TestEmptyBucket(t *testing.T) {
+	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	fmt.Println(c.EmptyBucket("test"))
+}
+
+func TestDeleteBucket(t *testing.T) {
+	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	fmt.Println(c.DeleteBucket("test"))
 }
