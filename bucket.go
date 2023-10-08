@@ -1,55 +1,51 @@
 package storage_go
 
 import (
-	"bytes"
 	"encoding/json"
-	"io"
 	"net/http"
 )
 
-func (c *Client) ListBuckets() ([]Bucket, BucketResponseError) {
-	res, err := c.session.Get(c.clientTransport.baseUrl.String() + "/bucket")
+// ListBuckets retrieves the details of all Storage buckets within an existing project.
+func (c *Client) ListBuckets() ([]Bucket, error) {
+	bucketsURL := c.clientTransport.baseUrl.String() + "/bucket"
+	req, err := c.NewRequest(http.MethodGet, bucketsURL, nil)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			panic(err)
-		}
-	}(res.Body)
-
-	body, err := io.ReadAll(res.Body)
+	var buckets []Bucket
+	_, err = c.Do(req, &buckets)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	var data []Bucket
-	err = json.Unmarshal(body, &data)
-
-	var respError BucketResponseError
-	err = json.Unmarshal(body, &respError)
-
-	return data, respError
+	return buckets, nil
 }
 
-func (c *Client) GetBucket(id string) (Bucket, BucketResponseError) {
-	res, err := c.session.Get(c.clientTransport.baseUrl.String() + "/bucket/" + id)
+// GetBucket retrieves the details of an existing Storage bucket.
+func (c *Client) GetBucket(id string) (Bucket, error) {
+	bucketURL := c.clientTransport.baseUrl.String() + "/bucket/" + id
+	req, err := c.NewRequest(http.MethodGet, bucketURL, nil)
 	if err != nil {
-		panic(err)
+		return Bucket{}, err
 	}
 
-	body, err := io.ReadAll(res.Body)
-	var data Bucket
-	var error_ BucketResponseError
-	err = json.Unmarshal(body, &data)
-	err = json.Unmarshal(body, &error_)
+	var bucket Bucket
+	_, err = c.Do(req, &bucket)
+	if err != nil {
+		return Bucket{}, err
+	}
 
-	return data, error_
+	return bucket, nil
 }
 
-func (c *Client) CreateBucket(id string, options BucketOptions) (Bucket, BucketResponseError) {
+// CreateBucket creates a new Storage bucket
+// options.public The visibility of the bucket. Public buckets don't require an authorization token to download objects, but still require a valid token for all other operations. By default, buckets are private.
+// options.fileSizeLimit The maximum file size in bytes allowed in the bucket. By default, there is no limit.
+// options.allowedMimeTypes The list of allowed MIME types. By default, all MIME types are allowed.
+// return newly created bucket id
+func (c *Client) CreateBucket(id string, options BucketOptions) (Bucket, error) {
+	createBucketURL := c.clientTransport.baseUrl.String() + "/bucket"
 	bodyData := map[string]interface{}{
 		"id":     id,
 		"name":   id,
@@ -63,25 +59,28 @@ func (c *Client) CreateBucket(id string, options BucketOptions) (Bucket, BucketR
 	if len(options.AllowedMimeTypes) > 0 {
 		bodyData["allowed_mime_types"] = options.AllowedMimeTypes
 	}
-	jsonBody, _ := json.Marshal(bodyData)
-	res, err := c.session.Post(c.clientTransport.baseUrl.String()+"/bucket",
-		"application/json",
-		bytes.NewBuffer(jsonBody))
+	// jsonBody, _ := json.Marshal(bodyData)
+	req, err := c.NewRequest(http.MethodPost, createBucketURL, &bodyData)
 	if err != nil {
-		panic(err)
+		return Bucket{}, err
 	}
 
-	body, err := io.ReadAll(res.Body)
-	var data Bucket
-	var error_ BucketResponseError
-	err = json.Unmarshal(body, &data)
-	data.Public = options.Public
-	err = json.Unmarshal(body, &error_)
+	var bucket Bucket
+	_, err = c.Do(req, &bucket)
+	if err != nil {
+		return Bucket{}, err
+	}
 
-	return data, error_
+	return bucket, nil
 }
 
-func (c *Client) UpdateBucket(id string, options BucketOptions) (MessageResponse, BucketResponseError) {
+// UpdateBucket creates a new Storage bucket
+// options.public The visibility of the bucket. Public buckets don't require an authorization token to download objects, but still require a valid token for all other operations. By default, buckets are private.
+// options.fileSizeLimit The maximum file size in bytes allowed in the bucket. By default, there is no limit.
+// options.allowedMimeTypes The list of allowed MIME types. By default, all MIME types are allowed.
+// return newly updated bucket id
+func (c *Client) UpdateBucket(id string, options BucketOptions) (MessageResponse, error) {
+	bucketURL := c.clientTransport.baseUrl.String() + "/bucket/" + id
 	bodyData := map[string]interface{}{
 		"id":     id,
 		"name":   id,
@@ -95,51 +94,45 @@ func (c *Client) UpdateBucket(id string, options BucketOptions) (MessageResponse
 	if len(options.AllowedMimeTypes) > 0 {
 		bodyData["allowed_mime_types"] = options.AllowedMimeTypes
 	}
-	jsonBody, _ := json.Marshal(bodyData)
-	request, err := http.NewRequest(http.MethodPut, c.clientTransport.baseUrl.String()+"/bucket/"+id, bytes.NewBuffer(jsonBody))
-	res, err := c.session.Do(request)
+	req, err := c.NewRequest(http.MethodPut, bucketURL, &bodyData)
 	if err != nil {
-		panic(err)
+		return MessageResponse{}, err
+	}
+	var message MessageResponse
+	_, err = c.Do(req, &message)
+	if err != nil {
+		return MessageResponse{}, err
 	}
 
-	body, err := io.ReadAll(res.Body)
-	var data MessageResponse
-	var error_ BucketResponseError
-	err = json.Unmarshal(body, &data)
-	err = json.Unmarshal(body, &error_)
-
-	return data, error_
+	return message, nil
 }
 
-func (c *Client) EmptyBucket(id string) (MessageResponse, BucketResponseError) {
+// EmptyBucket removes all objects inside a single bucket.
+func (c *Client) EmptyBucket(id string) (MessageResponse, error) {
+	bucketURL := c.clientTransport.baseUrl.String() + "/bucket/" + id + "/empty"
 	jsonBody, _ := json.Marshal(map[string]interface{}{})
-	res, err := c.session.Post(c.clientTransport.baseUrl.String()+"/bucket/"+id+"/empty", "application/json", bytes.NewBuffer(jsonBody))
+	req, err := c.NewRequest(http.MethodPost, bucketURL, &jsonBody)
 	if err != nil {
-		panic(err)
+		return MessageResponse{}, err
 	}
 
-	body, err := io.ReadAll(res.Body)
-	var data MessageResponse
-	var error_ BucketResponseError
-	err = json.Unmarshal(body, &data)
-	err = json.Unmarshal(body, &error_)
+	var message MessageResponse
+	_, err = c.Do(req, &message)
 
-	return data, error_
+	return message, err
 }
 
-func (c *Client) DeleteBucket(id string) (MessageResponse, BucketResponseError) {
+// DeleteBucket deletes an existing bucket. A bucket must be empty before it can be deleted.
+func (c *Client) DeleteBucket(id string) (MessageResponse, error) {
+	bucketURL := c.clientTransport.baseUrl.String() + "/bucket/" + id
 	jsonBody, _ := json.Marshal(map[string]interface{}{})
-	request, err := http.NewRequest(http.MethodDelete, c.clientTransport.baseUrl.String()+"/bucket/"+id, bytes.NewBuffer(jsonBody))
-	res, err := c.session.Do(request)
+	req, err := c.NewRequest(http.MethodDelete, bucketURL, &jsonBody)
 	if err != nil {
-		panic(err)
+		return MessageResponse{}, err
 	}
 
-	body, err := io.ReadAll(res.Body)
-	var data MessageResponse
-	var error_ BucketResponseError
-	err = json.Unmarshal(body, &data)
-	err = json.Unmarshal(body, &error_)
+	var message MessageResponse
+	_, err = c.Do(req, &message)
 
-	return data, error_
+	return message, err
 }

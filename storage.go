@@ -2,8 +2,6 @@ package storage_go
 
 import (
 	"bufio"
-	"bytes"
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
@@ -21,117 +19,139 @@ const (
 	defaultSortOrder        = "asc"
 )
 
-func (c *Client) UploadOrUpdateFile(bucketId string, relativePath string, data io.Reader, update bool) FileUploadResponse {
-	c.clientTransport.header.Set("cache-control", defaultFileCacheControl)
-	if c.clientTransport.header.Get("content-type") == "" {
-		c.clientTransport.header.Set("content-type", defaultFileContentType)
+func (c *Client) UploadOrUpdateFile(
+	bucketId string,
+	relativePath string,
+	data io.Reader,
+	update bool,
+	options ...FileOptions,
+) (FileUploadResponse, error) {
+	path := removeEmptyFolderName(bucketId + "/" + relativePath)
+	uploadURL := c.clientTransport.baseUrl.String() + "/object/" + path
+
+	// Check on file options
+	if len(options) > 0 {
+		if options[0].CacheControl != nil {
+			c.clientTransport.header.Set("cache-control", *options[0].CacheControl)
+		}
+		if options[0].ContentType != nil {
+			c.clientTransport.header.Set("content-type", *options[0].ContentType)
+		}
+		if options[0].Upsert != nil {
+			c.clientTransport.header.Set("x-upsert", strconv.FormatBool(*options[0].Upsert))
+		}
 	}
-	c.clientTransport.header.Set("x-upsert", strconv.FormatBool(defaultFileUpsert))
-	body := bufio.NewReader(data)
-	_path := removeEmptyFolderName(bucketId + "/" + relativePath)
-
-	var (
-		res     *http.Response
-		err     error
-		request *http.Request
-		method  = http.MethodPost
-	)
-
+	method := http.MethodPost
 	if update {
 		method = http.MethodPut
 	}
-
-	request, err = http.NewRequest(method, c.clientTransport.baseUrl.String()+"/object/"+_path, body)
-	res, err = c.session.Do(request)
+	bodyData := bufio.NewReader(data)
+	req, err := http.NewRequest(method, uploadURL, bodyData)
 	if err != nil {
-		panic(err)
+		return FileUploadResponse{}, err
 	}
 
-	body_, err := io.ReadAll(res.Body)
 	var response FileUploadResponse
-	err = json.Unmarshal(body_, &response)
+	_, err = c.Do(req, &response)
+	if err != nil {
+		return FileUploadResponse{}, err
+	}
 
-	return response
+	return response, nil
 }
 
-func (c *Client) UpdateFile(bucketId string, relativePath string, data io.Reader) FileUploadResponse {
-	return c.UploadOrUpdateFile(bucketId, relativePath, data, true)
+// UploadFile will upload file to an existing bucket.
+// bucketId string The bucket id
+// relativePath path The file path, including the file name. Should be of the format `folder/subfolder/filename.png`
+// data io.Reader The file data
+func (c *Client) UpdateFile(bucketId string, relativePath string, data io.Reader, fileOptions ...FileOptions) (FileUploadResponse, error) {
+	return c.UploadOrUpdateFile(bucketId, relativePath, data, true, fileOptions...)
 }
 
-func (c *Client) UploadFile(bucketId string, relativePath string, data io.Reader) FileUploadResponse {
-	return c.UploadOrUpdateFile(bucketId, relativePath, data, false)
+// UploadFile replace an existing file at the specified path.
+// bucketId string The bucket id
+// relativePath path The file path, including the file name. Should be of the format `folder/subfolder/filename.png`
+// data io.Reader The file data
+func (c *Client) UploadFile(bucketId string, relativePath string, data io.Reader, fileOptions ...FileOptions) (FileUploadResponse, error) {
+	return c.UploadOrUpdateFile(bucketId, relativePath, data, false, fileOptions...)
 }
 
-func (c *Client) MoveFile(bucketId string, sourceKey string, destinationKey string) FileUploadResponse {
-	jsonBody, _ := json.Marshal(map[string]interface{}{
+// MoveFile will move an existing file to new path in the same bucket.
+// bucketId string The bucket id
+// sourceKey path The file path, including the file name. Should be of the format `folder/subfolder/filename.png`
+// destinationKey path The file path, including the file name. Should be of the format `folder/subfolder/new-filename.png`
+func (c *Client) MoveFile(bucketId string, sourceKey string, destinationKey string) (FileUploadResponse, error) {
+	jsonBody := map[string]interface{}{
 		"bucketId":       bucketId,
 		"sourceKey":      sourceKey,
 		"destinationKey": destinationKey,
-	})
-
-	request, err := http.NewRequest(
-		http.MethodPost,
-		c.clientTransport.baseUrl.String()+"/object/move",
-		bytes.NewBuffer(jsonBody))
-
-	res, err := c.session.Do(request)
-	if err != nil {
-		panic(err)
 	}
 
-	body, err := io.ReadAll(res.Body)
+	moveURL := c.clientTransport.baseUrl.String() + "/object/move"
+	req, err := c.NewRequest(http.MethodPost, moveURL, &jsonBody)
+	if err != nil {
+		return FileUploadResponse{}, err
+	}
+
 	var response FileUploadResponse
-	err = json.Unmarshal(body, &response)
-
-	return response
-}
-
-func (c *Client) CreateSignedUrl(bucketId string, filePath string, expiresIn int) SignedUrlResponse {
-	jsonBody, _ := json.Marshal(map[string]interface{}{
-		"expiresIn": expiresIn,
-	})
-
-	request, err := http.NewRequest(
-		http.MethodPost,
-		c.clientTransport.baseUrl.String()+"/object/sign/"+bucketId+"/"+filePath,
-		bytes.NewBuffer(jsonBody))
-
-	res, err := c.session.Do(request)
+	_, err = c.Do(req, &response)
 	if err != nil {
-		panic(err)
+		return FileUploadResponse{}, err
 	}
-
-	body, err := io.ReadAll(res.Body)
-	var response SignedUrlResponse
-	err = json.Unmarshal(body, &response)
-	response.SignedURL = c.clientTransport.baseUrl.String() + response.SignedURL
-
-	return response
-}
-
-func (c *Client) CreateSignedUploadUrl(bucketId string, filePath string) (SignedUploadUrlResponse, error) {
-	emptyBody, _ := json.Marshal(struct{}{})
-	request, err := http.NewRequest(
-		http.MethodPost,
-		c.clientTransport.baseUrl.String()+"/object/upload/sign/"+bucketId+"/"+filePath, bytes.NewBuffer(emptyBody))
-	if err != nil {
-		return SignedUploadUrlResponse{}, err
-	}
-	res, err := c.session.Do(request)
-	if err != nil {
-		return SignedUploadUrlResponse{}, err
-	}
-
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return SignedUploadUrlResponse{}, err
-	}
-	var response SignedUploadUrlResponse
-	err = json.Unmarshal(body, &response)
 
 	return response, err
 }
 
+// CreateSignedUrl create a signed URL. Use a signed URL to share a file for a fixed amount of time.
+// bucketId string The bucket id
+// filePath path The file path, including the file name. Should be of the format `folder/subfolder/filename.png`
+// expiresIn int The number of seconds before the signed URL expires. Defaults to 60 seconds.
+func (c *Client) CreateSignedUrl(bucketId string, filePath string, expiresIn int) (SignedUrlResponse, error) {
+	signedURL := c.clientTransport.baseUrl.String() + "/object/sign/" + bucketId + "/" + filePath
+	jsonBody := map[string]interface{}{
+		"expiresIn": expiresIn,
+	}
+
+	req, err := c.NewRequest(http.MethodPost, signedURL, &jsonBody)
+	if err != nil {
+		return SignedUrlResponse{}, err
+	}
+
+	var response SignedUrlResponse
+	_, err = c.Do(req, &response)
+	if err != nil {
+		return SignedUrlResponse{}, err
+	}
+
+	response.SignedURL = c.clientTransport.baseUrl.String() + response.SignedURL
+
+	return response, nil
+}
+
+// CreateSignedUploadUrl create a signed URL for uploading a file. Use a signed URL to upload a file directly to a bucket.
+// bucketId string The bucket id
+// filePath path The file path, including the file name. Should be of the format `folder/subfolder/filename.png`
+func (c *Client) CreateSignedUploadUrl(bucketId string, filePath string) (SignedUploadUrlResponse, error) {
+	signUploadURL := c.clientTransport.baseUrl.String() + "/object/upload/sign/" + bucketId + "/" + filePath
+	emptyBody := struct{}{}
+
+	req, err := c.NewRequest(http.MethodPost, signUploadURL, &emptyBody)
+	if err != nil {
+		return SignedUploadUrlResponse{}, err
+	}
+
+	var response SignedUploadUrlResponse
+	_, err = c.Do(req, &response)
+	if err != nil {
+		return SignedUploadUrlResponse{}, err
+	}
+
+	return response, err
+}
+
+// UploadToSignedUrl upload a file to a signed URL.
+// filePath string The file path, including the file name. Should be of the format `folder/subfolder/filename.png`
+// fileBody io.Reader The file data
 func (c *Client) UploadToSignedUrl(filePath string, fileBody io.Reader) (*UploadToSignedUrlResponse, error) {
 	c.clientTransport.header.Set("cache-control", defaultFileCacheControl)
 	c.clientTransport.header.Set("content-type", defaultFileContentType)
@@ -139,22 +159,15 @@ func (c *Client) UploadToSignedUrl(filePath string, fileBody io.Reader) (*Upload
 
 	bodyRequest := bufio.NewReader(fileBody)
 	path := removeEmptyFolderName(filePath)
+	uploadToSignedURL := c.clientTransport.baseUrl.String() + path
 
-	request, err := http.NewRequest(http.MethodPut, c.clientTransport.baseUrl.String()+path, bodyRequest)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.session.Do(request)
+	req, err := http.NewRequest(http.MethodPut, uploadToSignedURL, bodyRequest)
 	if err != nil {
 		return nil, err
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
 	var response UploadToSignedUrlResponse
-	err = json.Unmarshal(body, &response)
+	_, err = c.Do(req, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -162,6 +175,10 @@ func (c *Client) UploadToSignedUrl(filePath string, fileBody io.Reader) (*Upload
 	return &response, err
 }
 
+// GetPublicUrl use to to get the URL for an asset in a public bucket. If you do not want to use this function, you can construct the public URL by concatenating the bucket URL with the path to the asset.
+// bucketId string The bucket id
+// filePath path The file path, including the file name. Should be of the format `folder/subfolder/filename.png`
+// urlOptions UrlOptions The URL options
 func (c *Client) GetPublicUrl(bucketId string, filePath string, urlOptions ...UrlOptions) SignedUrlResponse {
 	var response SignedUrlResponse
 	renderPath := "object"
@@ -178,30 +195,34 @@ func (c *Client) GetPublicUrl(bucketId string, filePath string, urlOptions ...Ur
 	return response
 }
 
-func (c *Client) RemoveFile(bucketId string, paths []string) FileUploadResponse {
-	jsonBody, _ := json.Marshal(map[string]interface{}{
+// RemoveFile remove a file from an existing bucket.
+// bucketId string The bucket id.
+// paths []string The file paths, including the file name. Should be of the format `folder/subfolder/filename.png`
+func (c *Client) RemoveFile(bucketId string, paths []string) ([]FileUploadResponse, error) {
+	removeURL := c.clientTransport.baseUrl.String() + "/object/" + bucketId
+	jsonBody := map[string]interface{}{
 		"prefixes": paths,
-	})
-
-	request, err := http.NewRequest(
-		http.MethodDelete,
-		c.clientTransport.baseUrl.String()+"/object/"+bucketId,
-		bytes.NewBuffer(jsonBody))
-
-	res, err := c.session.Do(request)
-	if err != nil {
-		panic(err)
 	}
 
-	body, err := io.ReadAll(res.Body)
-	var response FileUploadResponse
-	err = json.Unmarshal(body, &response)
-	response.Data = body
+	req, err := c.NewRequest(http.MethodDelete, removeURL, &jsonBody)
+	if err != nil {
+		return []FileUploadResponse{}, err
+	}
 
-	return response
+	var response []FileUploadResponse
+	_, err = c.Do(req, &response)
+	if err != nil {
+		return []FileUploadResponse{}, err
+	}
+
+	return response, err
 }
 
-func (c *Client) ListFiles(bucketId string, queryPath string, options FileSearchOptions) []FileObject {
+// ListFiles list files in an existing bucket.
+// bucketId string The bucket id.
+// queryPath string The file path, including the file name. Should be of the format `folder/subfolder/filename.png`
+// options FileSearchOptions The file search options
+func (c *Client) ListFiles(bucketId string, queryPath string, options FileSearchOptions) ([]FileObject, error) {
 	if options.Offset == 0 {
 		options.Offset = defaultOffset
 	}
@@ -218,7 +239,7 @@ func (c *Client) ListFiles(bucketId string, queryPath string, options FileSearch
 		options.SortByOptions.Column = defaultSortColumn
 	}
 
-	body_ := ListFileRequestBody{
+	body := ListFileRequestBody{
 		Limit:  options.Limit,
 		Offset: options.Offset,
 		SortByOptions: SortBy{
@@ -227,26 +248,26 @@ func (c *Client) ListFiles(bucketId string, queryPath string, options FileSearch
 		},
 		Prefix: queryPath,
 	}
-	jsonBody, _ := json.Marshal(body_)
 
-	request, err := http.NewRequest(
-		http.MethodPost,
-		c.clientTransport.baseUrl.String()+"/object/list/"+bucketId,
-		bytes.NewBuffer(jsonBody))
-
-	res, err := c.session.Do(request)
+	listFileURL := c.clientTransport.baseUrl.String() + "/object/list/" + bucketId
+	req, err := c.NewRequest(http.MethodPost, listFileURL, &body)
 	if err != nil {
-		panic(err)
+		return []FileObject{}, err
 	}
 
-	body, err := io.ReadAll(res.Body)
 	var response []FileObject
+	_, err = c.Do(req, &response)
+	if err != nil {
+		return []FileObject{}, err
+	}
 
-	err = json.Unmarshal(body, &response)
-
-	return response
+	return response, nil
 }
 
+// DownloadFile download a file from an existing bucket.
+// bucketId string The bucket id.
+// filePath string The file path, including the file name. Should be of the format `folder/subfolder/filename.png`
+// urlOptions UrlOptions The URL options
 func (c *Client) DownloadFile(bucketId string, filePath string, urlOptions ...UrlOptions) ([]byte, error) {
 	var options UrlOptions
 	renderPath := "object"
@@ -257,18 +278,17 @@ func (c *Client) DownloadFile(bucketId string, filePath string, urlOptions ...Ur
 		}
 	}
 	urlStr := c.clientTransport.baseUrl.String() + "/" + renderPath + "/" + bucketId + "/" + filePath
-	request, err := http.NewRequest(
-		http.MethodGet,
-		buildUrlWithOption(urlStr, options),
-		nil)
+	req, err := c.NewRequest(http.MethodGet, buildUrlWithOption(urlStr, options), nil)
 	if err != nil {
 		return nil, err
 	}
-	res, err := c.session.Do(request)
+
+	res, err := c.Do(req, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Body.Close()
+
 	body, err := io.ReadAll(res.Body)
 	return body, err
 }
