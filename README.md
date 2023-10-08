@@ -25,9 +25,6 @@ import (
 
 func main() {
 	storageClient := storage_go.NewClient("https://<project-reference-id>.supabase.co/storage/v1", "<project-secret-api-key>", nil)
-
-  // Another way
-	storage_go.NewClient("https://<project-reference-id>.supabase.co/storage/v1", "", )
 }
 ```
 
@@ -39,8 +36,8 @@ func main() {
 
 ```go
   result, err := storageClient.CreateBucket("bucket-id", storage_go.BucketOptions{
-		Public: true,
-	})
+    Public: true,
+  })
 ```
 
 - Retrieve the details of an existing Storage bucket:
@@ -53,8 +50,8 @@ func main() {
 
 ```go
   result, err := storageClient.UpdateBucket("bucket-id", storage_go.BucketOptions{
-		Public: true,
-	})
+    Public: true,
+  })
 ```
 
 - Remove all objects inside a single bucket:
@@ -95,13 +92,13 @@ func main() {
 
 ```go
   result, err := storageClient.ListFiles("bucket-id", "", storage_go.FileSearchOptions{
-		Limit:  10,
-		Offset: 0,
-		SortByOptions: storage_go.SortBy{
-			Column: "",
-			Order:  "",
-		},
-	})
+      Limit:  10,
+      Offset: 0,
+      SortByOptions: storage_go.SortBy{
+      Column: "",
+      Order:  "",
+    },
+  })
 ```
 
 > Note: The `list` method also accepts a map of optional parameters.
@@ -132,7 +129,6 @@ func main() {
   const expireIn = 60
 
   result, err := storageClient.CreateSignedUrl("test", "test.mp4", expireIn)
-
 ```
 
 - Retrieve URLs for assets in public buckets:
@@ -147,7 +143,7 @@ func main() {
   fileBody := ... // load your file here
 
   resp, err := storageClient.CreateSignedUploadUrl("test", "test.txt")
-	res, err := storageClient.UploadToSignedUrl(resp.Url, file)
+  res, err := storageClient.UploadToSignedUrl(resp.Url, file)
 ```
 
 ## License
