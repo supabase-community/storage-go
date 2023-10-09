@@ -8,7 +8,7 @@ import (
 	"net/url"
 )
 
-var version = "v0.6.9"
+var version = "v0.7.0"
 
 type Client struct {
 	clientError     error
