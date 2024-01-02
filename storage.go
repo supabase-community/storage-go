@@ -60,7 +60,7 @@ func (c *Client) UploadOrUpdateFile(
 	return response, nil
 }
 
-// UploadFile will upload file to an existing bucket.
+// UpdateFile will replace an existing file at the specified path.
 // bucketId string The bucket id
 // relativePath path The file path, including the file name. Should be of the format `folder/subfolder/filename.png`
 // data io.Reader The file data
@@ -68,7 +68,7 @@ func (c *Client) UpdateFile(bucketId string, relativePath string, data io.Reader
 	return c.UploadOrUpdateFile(bucketId, relativePath, data, true, fileOptions...)
 }
 
-// UploadFile replace an existing file at the specified path.
+// UploadFile will upload file to an existing bucket at the specified path.
 // bucketId string The bucket id
 // relativePath path The file path, including the file name. Should be of the format `folder/subfolder/filename.png`
 // data io.Reader The file data
