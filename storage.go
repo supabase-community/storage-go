@@ -53,6 +53,10 @@ func (c *Client) UploadOrUpdateFile(
 
 	var response FileUploadResponse
 	_, err = c.Do(req, &response)
+
+	// set content-type back to default after request
+	c.clientTransport.header.Set("content-type", "application/json")
+	
 	if err != nil {
 		return FileUploadResponse{}, err
 	}
