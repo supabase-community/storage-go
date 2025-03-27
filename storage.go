@@ -43,17 +43,9 @@ func (c *Client) UploadOrUpdateFile(
 	}
 	// Ensure headers are reset after request completes
 	defer func() {
-		if len(options) > 0 {
-			if options[0].CacheControl != nil {
-				c.clientTransport.header.Del("cache-control")
-			}
-			if options[0].ContentType != nil {
-				c.clientTransport.header.Del("content-type")
-			}
-			if options[0].Upsert != nil {
-				c.clientTransport.header.Del("x-upsert")
-			}
-		}
+		c.clientTransport.header.Set("content-type", "application/json")
+		c.clientTransport.header.Del("cache-control")
+		c.clientTransport.header.Del("x-upsert")
 	}()
 
 	method := http.MethodPost
@@ -69,7 +61,6 @@ func (c *Client) UploadOrUpdateFile(
 	var response FileUploadResponse
 	_, err = c.Do(req, &response)
 	// set content-type back to default after request
-	c.clientTransport.header.Set("content-type", "application/json")
 
 	if err != nil {
 		return FileUploadResponse{}, err
