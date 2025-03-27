@@ -53,10 +53,21 @@ func (c *Client) UploadOrUpdateFile(
 
 	var response FileUploadResponse
 	_, err = c.Do(req, &response)
+	if len(options) > 0 {
+		if options[0].CacheControl != nil {
+			c.clientTransport.header.Del("cache-control")
+		}
+		if options[0].ContentType != nil {
+			c.clientTransport.header.Del("content-type")
+		}
+		if options[0].Upsert != nil {
+			c.clientTransport.header.Del("x-upsert")
+		}
+	}
 
 	// set content-type back to default after request
 	c.clientTransport.header.Set("content-type", "application/json")
-	
+
 	if err != nil {
 		return FileUploadResponse{}, err
 	}
