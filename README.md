@@ -7,7 +7,7 @@ This library is a Golang client for the [Supabase Storage API](https://supabase.
 #### Install
 
 ```shell
-go get github.com/supabase-community/storage-go
+go get github.com/darwishdev/storage-go
 ```
 
 ### Connecting to the storage backend
@@ -20,7 +20,7 @@ import (
 	"log"
 	"os"
 
-	storage_go "github.com/supabase-community/storage-go"
+	storage_go "github.com/darwishdev/storage-go"
 )
 
 func main() {

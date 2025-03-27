@@ -1,3 +1,3 @@
-module github.com/supabase-community/storage-go
+module github.com/darwishdev/storage-go
 
 go 1.17
