@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	storage_go "github.com/darwishdev/storage-go"
+	storage_go "github.com/supabase-community/storage-go"
 )
 
 var (
