@@ -29,18 +29,6 @@ func (c *Client) UploadOrUpdateFile(
 	path := removeEmptyFolderName(bucketId + "/" + relativePath)
 	uploadURL := c.clientTransport.baseUrl.String() + "/object/" + path
 
-	// Check on file options
-	if len(options) > 0 {
-		if options[0].CacheControl != nil {
-			c.clientTransport.header.Set("cache-control", *options[0].CacheControl)
-		}
-		if options[0].ContentType != nil {
-			c.clientTransport.header.Set("content-type", *options[0].ContentType)
-		}
-		if options[0].Upsert != nil {
-			c.clientTransport.header.Set("x-upsert", strconv.FormatBool(*options[0].Upsert))
-		}
-	}
 	method := http.MethodPost
 	if update {
 		method = http.MethodPut
@@ -51,12 +39,22 @@ func (c *Client) UploadOrUpdateFile(
 		return FileUploadResponse{}, err
 	}
 
+	// Check on file options
+	if len(options) > 0 {
+		if options[0].CacheControl != nil {
+			req.Header.Set("cache-control", *options[0].CacheControl)
+		}
+		if options[0].ContentType != nil {
+			req.Header.Set("content-type", *options[0].ContentType)
+		}
+		if options[0].Upsert != nil {
+			req.Header.Set("x-upsert", strconv.FormatBool(*options[0].Upsert))
+		}
+	}
+
 	var response FileUploadResponse
 	_, err = c.Do(req, &response)
 
-	// set content-type back to default after request
-	c.clientTransport.header.Set("content-type", "application/json")
-	
 	if err != nil {
 		return FileUploadResponse{}, err
 	}

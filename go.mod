@@ -1,3 +1,3 @@
 module github.com/supabase-community/storage-go
 
-go 1.17
+go 1.18
