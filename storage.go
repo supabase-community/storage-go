@@ -41,6 +41,13 @@ func (c *Client) UploadOrUpdateFile(
 			c.clientTransport.header.Set("x-upsert", strconv.FormatBool(*options[0].Upsert))
 		}
 	}
+	// Ensure headers are reset after request completes
+	defer func() {
+		c.clientTransport.header.Set("content-type", "application/json")
+		c.clientTransport.header.Del("cache-control")
+		c.clientTransport.header.Del("x-upsert")
+	}()
+
 	method := http.MethodPost
 	if update {
 		method = http.MethodPut
@@ -53,10 +60,8 @@ func (c *Client) UploadOrUpdateFile(
 
 	var response FileUploadResponse
 	_, err = c.Do(req, &response)
-
 	// set content-type back to default after request
-	c.clientTransport.header.Set("content-type", "application/json")
-	
+
 	if err != nil {
 		return FileUploadResponse{}, err
 	}
