@@ -3,6 +3,7 @@ package test
 import (
 	"fmt"
 	"os"
+	"sync"
 	"testing"
 
 	storage_go "github.com/supabase-community/storage-go"
@@ -108,4 +109,32 @@ func TestDownloadFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WriteFile failed: %v", err)
 	}
+}
+
+// TestConcurrentFileUpload tests concurrent file uploads to a bucket.
+// To correctly ensure this catches bugs run with the race detector.
+func TestConcurrentFileUpload(t *testing.T) {
+	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	file, _ := os.Open("dummy.txt")
+	defer file.Close()
+
+	const concurrent = 8
+	wg := sync.WaitGroup{}
+	wg.Add(concurrent)
+
+	for i := 0; i < concurrent; i++ {
+		go func(index int) {
+			c.UploadFile("test", fmt.Sprintf("test%d.txt", index), file, storage_go.FileOptions{
+				CacheControl: ptr("public, max-age=3600"),
+				ContentType:  ptr("text/plain"),
+				Upsert:       ptr(true),
+			})
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

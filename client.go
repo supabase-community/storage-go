@@ -22,11 +22,6 @@ type transport struct {
 }
 
 func (t transport) RoundTrip(request *http.Request) (*http.Response, error) {
-	for headerName, values := range t.header {
-		for _, val := range values {
-			request.Header.Add(headerName, val)
-		}
-	}
 	request.URL = t.baseUrl.ResolveReference(request.URL)
 	return http.DefaultTransport.RoundTrip(request)
 }
@@ -80,6 +75,15 @@ func (c *Client) NewRequest(method, url string, body ...interface{}) (*http.Requ
 	if err != nil {
 		return nil, err
 	}
+
+	// Copy transport headers to request headers.
+	// This prevents concurrent modification of headers if you have multiple requests.
+	for k, headers := range c.clientTransport.header {
+		for _, v := range headers {
+			req.Header.Add(k, v)
+		}
+	}
+
 	return req, nil
 }
 
