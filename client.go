@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 var version = "v0.8.1"
@@ -53,7 +54,17 @@ func NewClient(rawUrl string, token string, headers map[string]string) *Client {
 	c.clientTransport.header.Set("Accept", "application/json")
 	c.clientTransport.header.Set("Content-Type", "application/json")
 	c.clientTransport.header.Set("X-Client-Info", "storage-go/"+version)
-	c.clientTransport.header.Set("Authorization", "Bearer "+token)
+	c.clientTransport.header.Set("apikey", token)
+
+	// New-style Supabase API keys (sb_publishable_... / sb_secret_...) are not JWTs
+	// and cannot be used with a "Bearer " prefix in the Authorization header.
+	// For these keys, set Authorization to the exact same value as apikey (backward-compat mode).
+	// Legacy JWT-based keys (anon / service_role) keep the standard Bearer scheme.
+	if strings.HasPrefix(token, "sb_") {
+		c.clientTransport.header.Set("Authorization", token)
+	} else {
+		c.clientTransport.header.Set("Authorization", "Bearer "+token)
+	}
 
 	// Optional headers [if exists]
 	for key, value := range headers {
