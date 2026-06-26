@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -99,7 +100,7 @@ func NewClient(rawUrl string, token string, headers map[string]string) *Client {
 	// Set required headers
 	c.clientTransport.header.Set("Accept", "application/json")
 	c.clientTransport.header.Set("Content-Type", "application/json")
-	c.clientTransport.header.Set("X-Client-Info", "storage-go/"+version)
+	c.clientTransport.header.Set("X-Client-Info", clientInfoHeader())
 	c.clientTransport.header.Set("Authorization", "Bearer "+token)
 
 	// Optional headers [if exists]
@@ -108,6 +109,19 @@ func NewClient(rawUrl string, token string, headers map[string]string) *Client {
 	}
 
 	return &c
+}
+
+func clientInfoHeader() string {
+	parts := []string{"storage-go/" + version}
+	if runtime.GOOS != "" {
+		parts = append(parts, "platform="+runtime.GOOS)
+	}
+	if runtimeVersion := strings.TrimPrefix(runtime.Version(), "go"); runtimeVersion != "" {
+		parts = append(parts, "runtime-version="+runtimeVersion)
+	}
+	parts = append(parts, "runtime=go")
+
+	return strings.Join(parts, "; ")
 }
 
 // From returns a file client scoped to bucketID.

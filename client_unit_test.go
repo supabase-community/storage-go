@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +13,14 @@ import (
 type trackingReadCloser struct {
 	*strings.Reader
 	closed bool
+}
+
+type clientInfoObservedRequest struct {
+	clientInfo            string
+	deprecatedPlatform    string
+	deprecatedRuntime     string
+	deprecatedRuntimeVer  string
+	deprecatedPlatformVer string
 }
 
 func (r *trackingReadCloser) Close() error {
@@ -133,6 +142,105 @@ func TestClientAddsAuthorizationAndCustomHeaders(t *testing.T) {
 	if want := "test-value"; got.customHeader != want {
 		t.Errorf("x-test-header header = %q, want %q", got.customHeader, want)
 	}
+}
+
+func TestClientSetsStructuredClientInfoHeader(t *testing.T) {
+	observed := make(chan clientInfoObservedRequest, 1)
+	client, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		observed <- clientInfoObservedRequest{
+			clientInfo:            r.Header.Get("x-client-info"),
+			deprecatedPlatform:    r.Header.Get("x-supabase-client-platform"),
+			deprecatedRuntime:     r.Header.Get("x-supabase-client-runtime"),
+			deprecatedRuntimeVer:  r.Header.Get("x-supabase-client-runtime-version"),
+			deprecatedPlatformVer: r.Header.Get("x-supabase-client-platform-version"),
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`[]`))
+	})
+
+	if _, err := client.ListBuckets(); err != nil {
+		t.Fatalf("ListBuckets() returned error: %v", err)
+	}
+
+	got := takeStructuredHeaderRequest(t, observed)
+	params := parseClientInfoHeader(t, got.clientInfo)
+	if got.clientInfo == "" {
+		t.Fatal("X-Client-Info header = empty, want structured value")
+	}
+	if token := strings.Split(got.clientInfo, ";")[0]; token != "storage-go/"+version {
+		t.Errorf("X-Client-Info library token = %q, want %q", token, "storage-go/"+version)
+	}
+	if got, want := params["platform"], runtime.GOOS; got != want {
+		t.Errorf("X-Client-Info platform = %q, want %q", got, want)
+	}
+	if got, want := params["runtime"], "go"; got != want {
+		t.Errorf("X-Client-Info runtime = %q, want %q", got, want)
+	}
+	if got, want := params["runtime-version"], strings.TrimPrefix(runtime.Version(), "go"); got != want {
+		t.Errorf("X-Client-Info runtime-version = %q, want %q", got, want)
+	}
+	for _, key := range []string{"platform-version", "framework", "framework-version"} {
+		if value, ok := params[key]; ok {
+			t.Errorf("X-Client-Info %s = %q, want omitted", key, value)
+		}
+	}
+	if got.deprecatedPlatform != "" || got.deprecatedRuntime != "" || got.deprecatedRuntimeVer != "" || got.deprecatedPlatformVer != "" {
+		t.Fatalf("deprecated Supabase client metadata headers = %#v, want all empty", got)
+	}
+}
+
+func TestClientPreservesUserSuppliedClientInfoHeader(t *testing.T) {
+	observed := make(chan string, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		observed <- r.Header.Get("x-client-info")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	t.Cleanup(server.Close)
+
+	want := "custom-sdk/9.9.9; framework=myapp"
+	client := NewClient(server.URL, "test-token", map[string]string{"X-Client-Info": want})
+	if _, err := client.ListBuckets(); err != nil {
+		t.Fatalf("ListBuckets() returned error: %v", err)
+	}
+
+	select {
+	case got := <-observed:
+		if got != want {
+			t.Fatalf("X-Client-Info header = %q, want %q", got, want)
+		}
+	default:
+		t.Fatal("ListBuckets() did not call handler")
+	}
+}
+
+func takeStructuredHeaderRequest(t *testing.T, observed <-chan clientInfoObservedRequest) clientInfoObservedRequest {
+	t.Helper()
+
+	select {
+	case got := <-observed:
+		return got
+	default:
+		t.Fatal("ListBuckets() did not call handler")
+		return clientInfoObservedRequest{}
+	}
+}
+
+func parseClientInfoHeader(t *testing.T, header string) map[string]string {
+	t.Helper()
+
+	parts := strings.Split(header, ";")
+	params := map[string]string{}
+	for _, part := range parts[1:] {
+		part = strings.TrimSpace(part)
+		key, value, ok := strings.Cut(part, "=")
+		if !ok {
+			t.Fatalf("X-Client-Info parameter %q is not key=value", part)
+		}
+		params[key] = value
+	}
+
+	return params
 }
 
 func TestClientSendsJSONRequestBody(t *testing.T) {
