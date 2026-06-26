@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 )
 
 var version = "v0.8.1"
@@ -16,19 +18,55 @@ type Client struct {
 	clientTransport transport
 }
 
+// FileClient provides file operations scoped to a bucket.
+type FileClient struct {
+	client   *Client
+	bucketID string
+}
+
+// BucketClient provides bucket management operations.
+type BucketClient struct {
+	client *Client
+}
+
+// AnalyticsClient provides storage analytics operations.
+type AnalyticsClient struct {
+	client *Client
+}
+
+// VectorClient provides storage vector operations.
+type VectorClient struct {
+	client *Client
+}
+
 type transport struct {
 	header  http.Header
 	baseUrl url.URL
+	base    http.RoundTripper
 }
 
 func (t transport) RoundTrip(request *http.Request) (*http.Response, error) {
 	for headerName, values := range t.header {
+		if request.Header.Get(headerName) != "" {
+			continue
+		}
 		for _, val := range values {
 			request.Header.Add(headerName, val)
 		}
 	}
-	request.URL = t.baseUrl.ResolveReference(request.URL)
-	return http.DefaultTransport.RoundTrip(request)
+	if !request.URL.IsAbs() {
+		resolved := t.baseUrl
+		resolved.Path = strings.TrimRight(t.baseUrl.Path, "/") + "/" + strings.TrimLeft(request.URL.Path, "/")
+		resolved.RawPath = ""
+		resolved.RawQuery = request.URL.RawQuery
+		resolved.Fragment = request.URL.Fragment
+		request.URL = &resolved
+	}
+	base := t.base
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	return base.RoundTrip(request)
 }
 
 func NewClient(rawUrl string, token string, headers map[string]string) *Client {
@@ -38,14 +76,23 @@ func NewClient(rawUrl string, token string, headers map[string]string) *Client {
 			clientError: err,
 		}
 	}
+	baseURL.Path = strings.TrimRight(baseURL.Path, "/")
+	baseURL.RawPath = ""
+
+	session := http.Client{}
+	if http.DefaultClient != nil {
+		session = *http.DefaultClient
+	}
 
 	t := transport{
 		header:  http.Header{},
 		baseUrl: *baseURL,
+		base:    session.Transport,
 	}
+	session.Transport = t
 
 	c := Client{
-		session:         http.Client{Transport: t},
+		session:         session,
 		clientTransport: t,
 	}
 
@@ -61,6 +108,26 @@ func NewClient(rawUrl string, token string, headers map[string]string) *Client {
 	}
 
 	return &c
+}
+
+// From returns a file client scoped to bucketID.
+func (c *Client) From(bucketID string) *FileClient {
+	return &FileClient{client: c, bucketID: bucketID}
+}
+
+// Buckets returns a bucket client.
+func (c *Client) Buckets() *BucketClient {
+	return &BucketClient{client: c}
+}
+
+// Analytics returns an analytics client.
+func (c *Client) Analytics() *AnalyticsClient {
+	return &AnalyticsClient{client: c}
+}
+
+// Vectors returns a vector client.
+func (c *Client) Vectors() *VectorClient {
+	return &VectorClient{client: c}
 }
 
 // NewRequest will create new request with method, url and body
@@ -98,9 +165,11 @@ func (c *Client) Do(req *http.Request, v interface{}) (*http.Response, error) {
 	}
 
 	if resp.Body != nil && v != nil {
-		defer resp.Body.Close()
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
+			return resp, err
+		}
+		if err := resp.Body.Close(); err != nil {
 			return resp, err
 		}
 		err = json.Unmarshal(body, &v)
@@ -117,12 +186,78 @@ func checkForError(resp *http.Response) error {
 		return nil
 	}
 
-	errorResponse := &StorageError{}
-
-	data, err := io.ReadAll(resp.Body)
-	if err == nil && data != nil {
-		_ = json.Unmarshal(data, errorResponse)
+	errorResponse := &StorageError{
+		Status:     resp.StatusCode,
+		StatusCode: resp.StatusCode,
 	}
 
+	if resp.Body == nil {
+		return errorResponse
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		errorResponse.Message = err.Error()
+		return errorResponse
+	}
+	if err := resp.Body.Close(); err != nil {
+		errorResponse.Message = err.Error()
+		return errorResponse
+	}
+	if len(data) == 0 {
+		return errorResponse
+	}
+
+	decoded, err := decodeStorageError(data)
+	if err != nil {
+		errorResponse.RawBody = string(data)
+		return errorResponse
+	}
+
+	if decoded.StatusCode != 0 {
+		errorResponse.Status = decoded.StatusCode
+		errorResponse.StatusCode = decoded.StatusCode
+	}
+	errorResponse.ErrorCode = decoded.ErrorCode
+	errorResponse.Message = decoded.Message
+
 	return errorResponse
+}
+
+type storageErrorResponse struct {
+	StatusCode json.RawMessage `json:"statusCode"`
+	ErrorCode  string          `json:"error"`
+	Message    string          `json:"message"`
+}
+
+func decodeStorageError(data []byte) (StorageError, error) {
+	var response storageErrorResponse
+	if err := json.Unmarshal(data, &response); err != nil {
+		return StorageError{}, err
+	}
+
+	return StorageError{
+		StatusCode: decodeStorageErrorStatusCode(response.StatusCode),
+		ErrorCode:  response.ErrorCode,
+		Message:    response.Message,
+	}, nil
+}
+
+func decodeStorageErrorStatusCode(data json.RawMessage) int {
+	var statusCode int
+	if err := json.Unmarshal(data, &statusCode); err == nil {
+		return statusCode
+	}
+
+	var statusCodeString string
+	if err := json.Unmarshal(data, &statusCodeString); err != nil {
+		return 0
+	}
+
+	statusCode, err := strconv.Atoi(statusCodeString)
+	if err != nil {
+		return 0
+	}
+
+	return statusCode
 }
