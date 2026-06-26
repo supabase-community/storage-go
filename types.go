@@ -11,21 +11,37 @@ type BucketResponseError struct {
 }
 
 type Bucket struct {
-	Id               string   `json:"id"`
-	Name             string   `json:"name"`
-	Owner            string   `json:"owner"`
-	Public           bool     `json:"public"`
-	FileSizeLimit    *int64   `json:"file_size_limit"`
-	AllowedMimeTypes []string `json:"allowed_mine_types"`
-	CreatedAt        string   `json:"created_at"`
-	UpdatedAt        string   `json:"updated_at"`
+	Id               string     `json:"id"`
+	Type             BucketType `json:"type,omitempty"`
+	Name             string     `json:"name"`
+	Owner            string     `json:"owner"`
+	Public           bool       `json:"public"`
+	FileSizeLimit    *int64     `json:"file_size_limit"`
+	AllowedMimeTypes []string   `json:"allowed_mime_types"`
+	CreatedAt        string     `json:"created_at"`
+	UpdatedAt        string     `json:"updated_at"`
 }
+
+type BucketType string
+
+const (
+	BucketTypeStandard  BucketType = "STANDARD"
+	BucketTypeAnalytics BucketType = "ANALYTICS"
+)
 
 // BucketOptions is used to create or update a Bucket with option
 type BucketOptions struct {
+	Type             BucketType
 	Public           bool
 	FileSizeLimit    string
 	AllowedMimeTypes []string
+}
+
+type ListBucketOptions struct {
+	Limit  int
+	Offset int
+	Search string
+	SortBy SortBy
 }
 
 type SortBy struct {
@@ -34,15 +50,22 @@ type SortBy struct {
 }
 
 type FileUploadResponse struct {
-	Key     string `json:"Key"`
-	Message string `json:"message"`
-	Data    []byte
-	Code    string `json:"statusCode"`
-	Error   string `json:"error"`
+	Key      string `json:"key"`
+	Path     string `json:"path"`
+	BucketID string `json:"bucketId"`
+	Name     string `json:"name"`
+	Message  string `json:"message"`
+	Data     []byte
+	Code     string `json:"statusCode"`
+	Error    string `json:"error"`
 }
 
 type SignedUrlResponse struct {
 	SignedURL string `json:"signedURL"`
+}
+
+type DestinationOptions struct {
+	DestinationBucket string `json:"destinationBucket,omitempty"`
 }
 
 type FileSearchOptions struct {
@@ -61,6 +84,22 @@ type FileObject struct {
 	LastAccessedAt string      `json:"last_accessed_at"`
 	Metadata       interface{} `json:"metadata"`
 	Buckets        Bucket
+}
+
+type SearchV2Options struct {
+	Limit  int      `json:"limit,omitempty"`
+	Offset int      `json:"offset,omitempty"`
+	SortBy SortBy   `json:"sortBy,omitempty"`
+	Search string   `json:"search,omitempty"`
+	Prefix string   `json:"prefix,omitempty"`
+	Levels []string `json:"levels,omitempty"`
+}
+
+type SearchV2Result struct {
+	Name     string         `json:"name"`
+	Type     string         `json:"type"`
+	ID       string         `json:"id,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
 }
 
 type ListFileRequestBody struct {
