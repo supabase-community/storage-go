@@ -51,6 +51,16 @@ func TestSignedUrl(t *testing.T) {
 	fmt.Println(resp, err)
 }
 
+func TestSignedUrls(t *testing.T) {
+	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	resp, err := c.CreateSignedUrls("test", []string{"file_example_MP4_480_1_5MG.mp4", "test.txt"}, 120)
+	if err != nil {
+		t.Fatalf("CreateSignedUrls failed: %v", err)
+	}
+
+	fmt.Println(resp, err)
+}
+
 func TestPublicUrl(t *testing.T) {
 	c := storage_go.NewClient(rawUrl, token, map[string]string{})
 	resp := c.GetPublicUrl("shield", "book.pdf")

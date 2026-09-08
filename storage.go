@@ -56,7 +56,7 @@ func (c *Client) UploadOrUpdateFile(
 
 	// set content-type back to default after request
 	c.clientTransport.header.Set("content-type", "application/json")
-	
+
 	if err != nil {
 		return FileUploadResponse{}, err
 	}
@@ -128,6 +128,35 @@ func (c *Client) CreateSignedUrl(bucketId string, filePath string, expiresIn int
 	}
 
 	response.SignedURL = c.clientTransport.baseUrl.String() + response.SignedURL
+
+	return response, nil
+}
+
+// CreateSignedUrls create multiple signed URLs. Use a signed URL to share a file for a fixed amount of time.
+// bucketId string The bucket id
+// filePaths []string The file paths, including the file name. Should be of the format `folder/subfolder/filename.png`
+// expiresIn int The number of seconds before the signed URLs expire. Defaults to 60 seconds.
+func (c *Client) CreateSignedUrls(bucketId string, filePaths []string, expiresIn int) ([]SignedUrlResponse, error) {
+	signedURL := c.clientTransport.baseUrl.String() + "/object/sign/" + bucketId
+	jsonBody := map[string]interface{}{
+		"expiresIn": expiresIn,
+		"paths":     filePaths,
+	}
+
+	req, err := c.NewRequest(http.MethodPost, signedURL, &jsonBody)
+	if err != nil {
+		return []SignedUrlResponse{}, err
+	}
+
+	var response []SignedUrlResponse
+	_, err = c.Do(req, &response)
+	if err != nil {
+		return []SignedUrlResponse{}, err
+	}
+
+	for i := range response {
+		response[i].SignedURL = c.clientTransport.baseUrl.String() + response[i].SignedURL
+	}
 
 	return response, nil
 }
