@@ -10,7 +10,7 @@ import (
 
 var (
 	rawUrl = "https://abc.supabase.co/storage/v1"
-	token  = ""
+  apiKey = ""
 )
 
 func TestUpload(t *testing.T) {
@@ -18,7 +18,7 @@ func TestUpload(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	c := storage_go.NewClient(rawUrl, map[string]string{})
 	resp, err := c.UploadFile("test", "test.txt", file)
 	fmt.Println(resp, err)
 
@@ -31,42 +31,42 @@ func TestUpdate(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	c := storage_go.NewClient(rawUrl, map[string]string{})
 	resp, err := c.UpdateFile("test", "test.txt", file)
 
 	fmt.Println(resp, err)
 }
 
 func TestMoveFile(t *testing.T) {
-	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	c := storage_go.NewClient(rawUrl, map[string]string{})
 	resp, err := c.MoveFile("test", "test.txt", "random/test.txt")
 
 	fmt.Println(resp, err)
 }
 
 func TestSignedUrl(t *testing.T) {
-	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	c := storage_go.NewClient(rawUrl, map[string]string{})
 	resp, err := c.CreateSignedUrl("test", "file_example_MP4_480_1_5MG.mp4", 120)
 
 	fmt.Println(resp, err)
 }
 
 func TestPublicUrl(t *testing.T) {
-	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	c := storage_go.NewClient(rawUrl, map[string]string{})
 	resp := c.GetPublicUrl("shield", "book.pdf")
 
 	fmt.Println(resp)
 }
 
 func TestDeleteFile(t *testing.T) {
-	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	c := storage_go.NewClient(rawUrl, map[string]string{})
 	resp, err := c.RemoveFile("shield", []string{"book.pdf"})
 
 	fmt.Println(resp, err)
 }
 
 func TestListFile(t *testing.T) {
-	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	c := storage_go.NewClient(rawUrl, map[string]string{})
 	resp, err := c.ListFiles("shield", "", storage_go.FileSearchOptions{
 		Limit:  10,
 		Offset: 0,
@@ -80,14 +80,16 @@ func TestListFile(t *testing.T) {
 }
 
 func TestCreateUploadSignedUrl(t *testing.T) {
-	c := storage_go.NewClient(rawUrl, token, map[string]string{"apiKey": token})
+	c := storage_go.NewClient(rawUrl, map[string]string{})
+  c.SetAuthToken(apiKey)
 	resp, err := c.CreateSignedUploadUrl("your-bucket-id", "book.pdf")
 
 	fmt.Println(resp, err)
 }
 
 func TestUploadToSignedUrl(t *testing.T) {
-	c := storage_go.NewClient(rawUrl, token, map[string]string{"apiKey": token})
+	c := storage_go.NewClient(rawUrl, map[string]string{})
+  c.SetAuthToken(apiKey)
 	file, err := os.Open("dummy.txt")
 	if err != nil {
 		panic(err)
@@ -98,7 +100,7 @@ func TestUploadToSignedUrl(t *testing.T) {
 }
 
 func TestDownloadFile(t *testing.T) {
-	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	c := storage_go.NewClient(rawUrl, map[string]string{})
 	resp, err := c.DownloadFile("test", "book.pdf")
 	if err != nil {
 		t.Fatalf("DownloadFile failed: %v", err)

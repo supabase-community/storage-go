@@ -8,25 +8,25 @@ import (
 )
 
 func TestBucketListAll(t *testing.T) {
-	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	c := storage_go.NewClient(rawUrl, map[string]string{})
 	resp, err := c.ListBuckets()
 	fmt.Println(resp, err)
 }
 
 func TestBucketFetchById(t *testing.T) {
-	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	c := storage_go.NewClient(rawUrl, map[string]string{})
 	fmt.Println(c.GetBucket("test"))
 }
 
 func TestBucketCreate(t *testing.T) {
-	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	c := storage_go.NewClient(rawUrl, map[string]string{})
 	fmt.Println(c.CreateBucket("test", storage_go.BucketOptions{
 		Public: true,
 	}))
 }
 
 func TestBucketUpdate(t *testing.T) {
-	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	c := storage_go.NewClient(rawUrl, map[string]string{})
 	_, _ = c.UpdateBucket("test", storage_go.BucketOptions{
 		Public: false,
 	})
@@ -39,11 +39,11 @@ func TestBucketUpdate(t *testing.T) {
 }
 
 func TestEmptyBucket(t *testing.T) {
-	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	c := storage_go.NewClient(rawUrl, map[string]string{})
 	fmt.Println(c.EmptyBucket("test"))
 }
 
 func TestDeleteBucket(t *testing.T) {
-	c := storage_go.NewClient(rawUrl, token, map[string]string{})
+	c := storage_go.NewClient(rawUrl, map[string]string{})
 	fmt.Println(c.DeleteBucket("test"))
 }

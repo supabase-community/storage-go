@@ -13,7 +13,7 @@ var version = "v0.8.1"
 type Client struct {
 	clientError     error
 	session         http.Client
-	clientTransport transport
+	clientTransport *transport
 }
 
 type transport struct {
@@ -31,7 +31,7 @@ func (t transport) RoundTrip(request *http.Request) (*http.Response, error) {
 	return http.DefaultTransport.RoundTrip(request)
 }
 
-func NewClient(rawUrl string, token string, headers map[string]string) *Client {
+func NewClient(rawUrl string, headers map[string]string) *Client {
 	baseURL, err := url.Parse(rawUrl)
 	if err != nil {
 		return &Client{
@@ -46,14 +46,13 @@ func NewClient(rawUrl string, token string, headers map[string]string) *Client {
 
 	c := Client{
 		session:         http.Client{Transport: t},
-		clientTransport: t,
+		clientTransport: &t,
 	}
 
 	// Set required headers
 	c.clientTransport.header.Set("Accept", "application/json")
 	c.clientTransport.header.Set("Content-Type", "application/json")
 	c.clientTransport.header.Set("X-Client-Info", "storage-go/"+version)
-	c.clientTransport.header.Set("Authorization", "Bearer "+token)
 
 	// Optional headers [if exists]
 	for key, value := range headers {
@@ -61,6 +60,12 @@ func NewClient(rawUrl string, token string, headers map[string]string) *Client {
 	}
 
 	return &c
+}
+
+// Sets authorization header for subsequent requests
+func (c *Client) SetAuthToken(authToken string) *Client {
+  c.clientTransport.header.Set("Authorization", "Bearer "+authToken)
+  return c
 }
 
 // NewRequest will create new request with method, url and body
